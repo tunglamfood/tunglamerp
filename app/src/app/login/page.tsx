@@ -28,7 +28,7 @@ export default function LoginPage() {
       }
       // The cookie is already stored by the time this resolves, so the router
       // will send it. refresh() re-runs the server layout that checks it.
-      router.push("/month");
+      router.push("/home");
       router.refresh();
     } catch {
       setError("Could not reach the system. Check your internet and try again.");
@@ -44,7 +44,7 @@ export default function LoginPage() {
           <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-accent text-lg font-bold text-white">
             TL
           </div>
-          <h1 className="text-xl font-semibold tracking-tight">TungLam HR</h1>
+          <h1 className="text-xl font-semibold tracking-tight">TungLam ERP</h1>
           <p className="mt-1 text-sm text-mute">Payroll &amp; workforce records</p>
         </div>
         <form onSubmit={submit} className="space-y-4 rounded-xl border border-line bg-white p-6">

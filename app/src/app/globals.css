@@ -1,29 +1,76 @@
 @import "tailwindcss";
 
+/* TungLam ERP — an industrial control panel.
+   Deep teal carried over from the first version, so it still feels like the
+   same company's tool. Everything else is built for one job: telling the
+   office what to do next. */
 :root {
-  --background: #f7f8fa;
-  --foreground: #17212b;
+  --background: #f6f7f8;
+  --foreground: #16202a;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --color-accent: #0f5c5a;
-  --color-accent-soft: #e7f0ef;
-  --color-ink: #17212b;
-  --color-mute: #67788a;
-  --color-line: #e5e9ee;
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+
+  --color-accent: #0d5c58;
+  --color-accent-hover: #0a4a47;
+  --color-accent-soft: #e4efee;
+  --color-accent-line: #b9d5d3;
+
+  --color-ink: #16202a;
+  --color-mute: #64778a;
+  --color-faint: #94a3b3;
+  --color-line: #e2e7ec;
+  --color-shell: #0f1a24;
+  --color-shell-mute: #7d93a6;
+
+  --color-warn: #a86400;
+  --color-warn-soft: #fdf3e2;
+  --color-warn-line: #f0d9ac;
+  --color-good: #0a6b4a;
+  --color-good-soft: #e2f2eb;
+  --color-bad: #b4261f;
+  --color-bad-soft: #fdeceb;
+
+  --font-sans: var(--font-manrope);
+  --font-mono: var(--font-jetbrains);
 }
+
+/* Reserve the scrollbar so opening the drawer cannot nudge the page sideways. */
+html { scrollbar-gutter: stable; }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  font-family: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
-input, select, textarea { outline: none; }
+input, select, textarea, button { outline: none; }
+input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* Numbers that have to line up in columns. */
+.nums { font-variant-numeric: tabular-nums; }
+
+/* The step cards reveal in order on first paint — it reads as a sequence
+   rather than a wall. */
+@keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.rise { animation: rise .32s cubic-bezier(.2,.7,.3,1) both; }
+
+/* The edit drawer comes in from the right, over a list that does not move. */
+@keyframes slide-in { from { transform: translateX(100%); } to { transform: none; } }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+.drawer { animation: slide-in .26s cubic-bezier(.22,.72,.28,1) both; }
+.scrim { animation: fade-in .2s ease both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .rise, .drawer, .scrim { animation: none; }
+  * { transition-duration: 0.01ms !important; }
+}
 
 @media print {
   .no-print { display: none !important; }
