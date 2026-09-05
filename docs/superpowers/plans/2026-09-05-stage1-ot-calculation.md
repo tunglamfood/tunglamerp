@@ -1084,7 +1084,7 @@ export function readCheckTime(buffer: ArrayBuffer | Buffer): ScanRow[] {
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `npx vitest run src/lib/checktime-reader.test.ts`
-Expected: PASS — 7 tests, including the real 2,100-row file.
+Expected: PASS — 9 tests, including the real export.
 
 - [ ] **Step 5: Commit**
 
