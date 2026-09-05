@@ -1,6 +1,16 @@
-# TungLam HR System
+# TungLam ERP
 
-Turns the CheckTime scanner export into a Million payroll import file.
+One system for Tung Lam Food Industries, built one module at a time.
+
+| Module | Status |
+|---|---|
+| **HR** — workers, monthly pay, Million export | working now |
+| Sales — customers, products, sales orders | next |
+| Permits & documents, leave & advances | later |
+
+## HR: what it does
+
+Turns the CheckTime scanner export into a Million payroll import file, and refuses to hand it over until every day adds up.
 
 ## The database
 
@@ -31,10 +41,18 @@ node scripts/import-workers.mjs
 
 ## Using it each month
 
-1. **Month** → pick the month → choose the CheckTime file → *Read the file*.
-2. **Check & fix** → every problem day is listed with a suggested time. Accept
-   or correct each one, or mark the day absent.
-3. **Download Million file** → unlocks once the list is clear.
+Open **Monthly pay** and work down the four steps:
+
+1. **Pick the month.** Anything already uploaded for it opens by itself.
+2. **Add the scanner file.** In CheckTime, run the In Out Report for the month
+   and save it. Drag it in, or press Choose file.
+3. **Check the days it could not read.** Each one has a suggested time already
+   filled in — accept it, correct it, or mark the day absent.
+4. **Download.** Unlocks once step 3 is empty. Bring the file into Million.
+
+**Workers** holds everyone on the payroll. Search by name, code or scanner
+number; filter by site, group, status, nationality or whether they are enrolled
+on the scanner. Click any row to edit them in the side panel.
 
 ## Checking it still works
 
