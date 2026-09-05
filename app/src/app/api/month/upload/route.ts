@@ -1,12 +1,14 @@
 // Takes the CheckTime export (and optionally the allowance sheet), matches each
 // scan to a worker, and stores the month.
 import { requireSession } from "@/lib/supabase-server";
-import { listWorkers, loadExtras, saveExtras, saveMonthScans } from "@/lib/store";
+import { listWorkers, saveExtras, saveMonthScans } from "@/lib/store";
 import { readCheckTime } from "@/lib/checktime-reader";
 import { readAllowances } from "@/lib/allowance-reader";
 import { buildMonthView } from "@/lib/month-service";
+import { listLeave } from "@/lib/store-hr";
+import { paidLeaveDaysInMonth } from "@/lib/month-inputs";
 import { loadMonth } from "@/lib/store";
-import { isMonthKey, workingStatuses } from "@/lib/month-loader";
+import { isMonthKey, monthExtras, workingStatuses } from "@/lib/month-loader";
 import { ScanDbRow } from "@/lib/store-mapping";
 
 export const runtime = "nodejs";
@@ -62,13 +64,18 @@ export async function POST(request: Request) {
       await saveExtras(monthKey, readAllowances(Buffer.from(await allowanceFile.arrayBuffer())));
     }
 
-    const [scans, extras] = await Promise.all([loadMonth(monthKey), loadExtras(monthKey)]);
+    const [scans, extras, leave] = await Promise.all([
+      loadMonth(monthKey),
+      monthExtras(monthKey),
+      listLeave(),
+    ]);
     const view = buildMonthView(
       monthKey,
       workers,
       scans,
       [...unmatched].map(([scannerId, name]) => ({ scannerId, name })),
       working,
+      paidLeaveDaysInMonth(leave, monthKey),
     );
 
     return Response.json({

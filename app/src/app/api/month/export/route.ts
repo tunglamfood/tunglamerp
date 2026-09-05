@@ -1,8 +1,7 @@
 // The Million import file. Refuses while anything is still to check — that
 // refusal is the whole reason this system can be trusted with wages.
 import { requireSession } from "@/lib/supabase-server";
-import { loadExtras } from "@/lib/store";
-import { isMonthKey, loadMonthView } from "@/lib/month-loader";
+import { isMonthKey, loadMonthView, monthExtras } from "@/lib/month-loader";
 import { writeMillionXls } from "@/lib/million-writer";
 
 export const runtime = "nodejs";
@@ -13,7 +12,7 @@ export async function GET(request: Request) {
   const monthKey = new URL(request.url).searchParams.get("month");
   if (!isMonthKey(monthKey)) return new Response("Choose a month first.", { status: 400 });
 
-  const [view, extras] = await Promise.all([loadMonthView(monthKey), loadExtras(monthKey)]);
+  const [view, extras] = await Promise.all([loadMonthView(monthKey), monthExtras(monthKey)]);
 
   if (view.flags.length > 0) {
     const n = view.flags.length;

@@ -1,18 +1,29 @@
-// The worker list is fetched on the server, so the page arrives with the data
-// already in it rather than blank-then-populated.
+// Everything about the people: the list itself, and the records kept against
+// them. One page with tabs rather than five sidebar entries, so it is obvious
+// where a worker's things live.
 import { listStatuses, listWorkers } from "@/lib/store";
-import { WorkersTable } from "@/components/workers-table";
-import { Card } from "@/components/ui";
-import { Worker, WorkerStatusOption } from "@/lib/types";
+import { listAssignments, listDocuments, listLeave, listNotes } from "@/lib/store-hr";
+import { WorkerHub } from "@/components/worker-hub";
+import { Notice } from "@/components/ui";
+import {
+  Assignment, LeaveRecord, Worker, WorkerDocument, WorkerNote, WorkerStatusOption,
+} from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
 export default async function WorkersPage() {
   let workers: Worker[] = [];
   let statuses: WorkerStatusOption[] = [];
+  let documents: WorkerDocument[] = [];
+  let leave: LeaveRecord[] = [];
+  let assignments: Assignment[] = [];
+  let notes: WorkerNote[] = [];
   let problem: string | null = null;
+
   try {
-    [workers, statuses] = await Promise.all([listWorkers(), listStatuses()]);
+    [workers, statuses, documents, leave, assignments, notes] = await Promise.all([
+      listWorkers(), listStatuses(), listDocuments(), listLeave(), listAssignments(), listNotes(),
+    ]);
   } catch (e) {
     // Most likely the database tables have not been created yet. Say so in
     // words rather than crashing the page.
@@ -21,16 +32,20 @@ export default async function WorkersPage() {
 
   if (problem) {
     return (
-      <Card className="border-red-200 bg-red-50 p-4 text-sm text-red-700">
-        <div className="font-medium">Could not reach the worker list.</div>
-        <div className="mt-1">{problem}</div>
-        <div className="mt-2 text-red-600">
-          If this is the first run, the database tables may not exist yet — run
-          supabase/schema.sql in Supabase.
+      <Notice tone="bad">
+        Could not reach the worker list. {problem}
+        <div className="mt-2 font-normal">
+          If this is the first run, the tables may not exist yet — run supabase/schema.sql.
         </div>
-      </Card>
+      </Notice>
     );
   }
 
-  return <WorkersTable workers={workers} statuses={statuses} />;
+  const today = new Date().toISOString().slice(0, 10);
+  return (
+    <WorkerHub
+      workers={workers} statuses={statuses} documents={documents}
+      leave={leave} assignments={assignments} notes={notes} today={today}
+    />
+  );
 }

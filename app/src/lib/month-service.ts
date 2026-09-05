@@ -36,6 +36,9 @@ export function buildMonthView(
   scans: Map<string, DayInput[]>,
   unmatched: { scannerId: string; name: string }[] = [],
   working: Set<string> = DEFAULT_WORKING,
+  /** Approved paid leave, per worker. Those days are not worked, but neither
+   *  are they no-pay leave, so they come off the no-pay figure. */
+  paidLeave: Map<string, number> = new Map(),
 ): MonthView {
   const { year, month } = parseMonthKey(monthKey);
   const holidays = holidaySet(monthKey);
@@ -53,7 +56,7 @@ export function buildMonthView(
     const byDate = new Map((scans.get(worker.code) ?? []).map((d) => [d.date, d]));
     const days = buildMonthDays(year, month, byDate, holidays);
 
-    totals.push(calcMonth(worker.code, days, workingDays));
+    totals.push(calcMonth(worker.code, days, workingDays, paidLeave.get(worker.code) ?? 0));
     flags.push(...flagsForWorker(worker, days, byDate));
   }
 

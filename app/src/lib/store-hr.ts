@@ -1,11 +1,11 @@
-// HR stages 2 to 4: money lines, leave, documents, assignments, notes, exits.
+// HR stages 2 to 4: money lines, leave, documents, hostel and transport, notes.
 //
-// All six follow the same shape — rows hanging off a worker — so they share one
+// All five follow the same shape — rows hanging off a worker — so they share one
 // small generic pair of helpers rather than six near-identical copies.
 import "server-only";
 import { serverSupabase } from "./supabase-server";
 import {
-  Assignment, ExitRecord, LeaveRecord, PayItem, WorkerDocument, WorkerNote,
+  Assignment, LeaveRecord, PayItem, WorkerDocument, WorkerNote,
 } from "./types";
 
 function fail(what: string, error: { message: string } | null): void {
@@ -161,32 +161,3 @@ export async function saveNote(n: WorkerNote): Promise<void> {
 }
 
 export const deleteNote = (id: number) => removeRow("hr_notes", "note", id);
-
-/* ── Leaving ──────────────────────────────────────────────────────────────── */
-
-export async function listExits(): Promise<ExitRecord[]> {
-  const { data, error } = await serverSupabase()
-    .from("hr_exits").select("*").order("last_day", { ascending: false });
-  fail("Could not load the leaving records", error);
-  return ((data ?? []) as Record<string, unknown>[]).map((r) => ({
-    code: r.code as string,
-    toldOn: (r.told_on as string) ?? null,
-    lastDay: (r.last_day as string) ?? null,
-    reason: (r.reason as string) ?? null,
-    noticeDays: (r.notice_days as number) ?? null,
-    finalPayNote: (r.final_pay_note as string) ?? null,
-    settled: r.settled as boolean,
-  }));
-}
-
-export async function saveExit(e: ExitRecord): Promise<void> {
-  const { error } = await serverSupabase().from("hr_exits").upsert(
-    {
-      code: e.code, told_on: e.toldOn || null, last_day: e.lastDay || null,
-      reason: e.reason, notice_days: e.noticeDays, final_pay_note: e.finalPayNote,
-      settled: e.settled,
-    },
-    { onConflict: "code" },
-  );
-  fail("Could not save that leaving record", error);
-}

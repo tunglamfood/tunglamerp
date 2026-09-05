@@ -155,17 +155,6 @@ export interface WorkerNote {
   subject: string;
   detail: string | null;
 }
-
-export interface ExitRecord {
-  code: string;
-  toldOn: string | null;
-  lastDay: string | null;
-  reason: string | null;
-  noticeDays: number | null;
-  finalPayNote: string | null;
-  settled: boolean;
-}
-
 /* ── Sales ────────────────────────────────────────────────────────────────── */
 
 export interface Customer {

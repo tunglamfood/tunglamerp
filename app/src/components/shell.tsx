@@ -4,9 +4,10 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 
 /**
- * The ERP's own map. HR is one module of several; the ones not built yet are
- * still listed, greyed, so it is obvious the system is meant to grow rather
- * than that something is missing.
+ * The ERP's own map. Kept deliberately short: everything about a worker lives
+ * on the worker page, everything about a month on the month page, each behind
+ * tabs. A sidebar with nine HR entries made the system look bigger than it is
+ * and hid where things belonged.
  */
 export const MODULES = [
   {
@@ -16,12 +17,6 @@ export const MODULES = [
       { href: "/home", label: "Start here", icon: "home" as const },
       { href: "/month", label: "Monthly pay", icon: "calendar" as const },
       { href: "/workers", label: "Workers", icon: "people" as const },
-      { href: "/hr/pay-items", label: "Allowances & advances", icon: "wallet" as const },
-      { href: "/hr/leave", label: "Leave", icon: "doc" as const },
-      { href: "/hr/documents", label: "Documents & permits", icon: "shield" as const },
-      { href: "/hr/assignments", label: "Hostel & transport", icon: "box" as const },
-      { href: "/hr/notes", label: "Warnings & notes", icon: "doc" as const },
-      { href: "/hr/exits", label: "People leaving", icon: "people" as const },
     ],
   },
   {

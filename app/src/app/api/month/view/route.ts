@@ -1,6 +1,5 @@
 import { requireSession } from "@/lib/supabase-server";
-import { loadExtras } from "@/lib/store";
-import { isMonthKey, loadMonthView } from "@/lib/month-loader";
+import { isMonthKey, loadMonthView, monthExtras } from "@/lib/month-loader";
 
 export const runtime = "nodejs";
 
@@ -13,7 +12,7 @@ export async function GET(request: Request) {
     return Response.json({ error: "Choose a month first." }, { status: 400 });
   }
   try {
-    const [view, extras] = await Promise.all([loadMonthView(monthKey), loadExtras(monthKey)]);
+    const [view, extras] = await Promise.all([loadMonthView(monthKey), monthExtras(monthKey)]);
     return Response.json({ ...view, extras: Object.fromEntries(extras) });
   } catch (e) {
     return Response.json({ error: (e as Error).message }, { status: 500 });

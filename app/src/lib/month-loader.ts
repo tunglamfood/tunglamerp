@@ -1,7 +1,10 @@
 // Loading a month for the screen or the export: the same steps every time, so
 // the flag list the office clears is always the list the export checks.
 import "server-only";
-import { listStatuses, listWorkers, loadMonth } from "./store";
+import { listStatuses, listWorkers, loadExtras, loadMonth } from "./store";
+import { listLeave, listPayItems } from "./store-hr";
+import { extrasFromPayItems, mergeExtras, paidLeaveDaysInMonth } from "./month-inputs";
+import { PayExtras } from "./types";
 import { MonthView, buildMonthView } from "./month-service";
 
 export async function workingStatuses(): Promise<Set<string>> {
@@ -10,12 +13,24 @@ export async function workingStatuses(): Promise<Set<string>> {
 }
 
 export async function loadMonthView(monthKey: string): Promise<MonthView> {
-  const [workers, scans, working] = await Promise.all([
+  const [workers, scans, working, leave] = await Promise.all([
     listWorkers(),
     loadMonth(monthKey),
     workingStatuses(),
+    listLeave(),
   ]);
-  return buildMonthView(monthKey, workers, scans, [], working);
+  const paidLeave = paidLeaveDaysInMonth(leave, monthKey);
+  return buildMonthView(monthKey, workers, scans, [], working, paidLeave);
+}
+
+/**
+ * The allowance and advance figures for a month: what the office has recorded
+ * on the Allowances & advances screen, with an uploaded spreadsheet filling in
+ * only where nothing has been recorded.
+ */
+export async function monthExtras(monthKey: string): Promise<Map<string, PayExtras>> {
+  const [items, uploaded] = await Promise.all([listPayItems(monthKey), loadExtras(monthKey)]);
+  return mergeExtras(extrasFromPayItems(items), uploaded);
 }
 
 export function isMonthKey(value: string | null | undefined): value is string {

@@ -1,7 +1,7 @@
 // One correction from the Check & fix list.
 import { requireSession } from "@/lib/supabase-server";
-import { loadExtras, saveCorrection } from "@/lib/store";
-import { isMonthKey, loadMonthView } from "@/lib/month-loader";
+import { saveCorrection } from "@/lib/store";
+import { isMonthKey, loadMonthView, monthExtras } from "@/lib/month-loader";
 import { normalizeTime } from "@/lib/time";
 
 export const runtime = "nodejs";
@@ -43,7 +43,7 @@ export async function POST(request: Request) {
       lastOverride: last,
       markedAbsent,
     });
-    const [view, extras] = await Promise.all([loadMonthView(monthKey), loadExtras(monthKey)]);
+    const [view, extras] = await Promise.all([loadMonthView(monthKey), monthExtras(monthKey)]);
     return Response.json({ ...view, extras: Object.fromEntries(extras) });
   } catch (e) {
     return Response.json({ error: (e as Error).message }, { status: 500 });

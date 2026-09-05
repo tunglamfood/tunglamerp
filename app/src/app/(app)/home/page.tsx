@@ -35,8 +35,9 @@ export default function HomePage() {
           One place for the whole factory.
         </h1>
         <p className="mt-2 max-w-2xl text-[15px] text-mute">
-          Being built one module at a time. HR is ready now &mdash; it turns the scanner file into
-          the file Million needs, and refuses to hand it over until every day adds up.
+          Being built one module at a time. HR turns the scanner file into the file Million needs,
+          and refuses to hand it over until every day adds up. Sales holds the customers, the
+          products, and what each dealer pays for each of them.
         </p>
       </div>
 
@@ -55,32 +56,42 @@ export default function HomePage() {
         ))}
       </div>
 
+      <h2 className="mb-3 text-[11px] font-bold uppercase tracking-[0.14em] text-faint">
+        Where everything lives
+      </h2>
       <div className="grid gap-3 sm:grid-cols-2">
-        <Link href="/month" className="group">
-          <Card className="h-full p-5 transition group-hover:border-accent-line group-hover:shadow-sm">
-            <div className="flex items-center justify-between">
-              <div className="text-base font-bold tracking-tight">Monthly pay</div>
-              <span className="text-accent transition group-hover:translate-x-0.5">&rarr;</span>
-            </div>
-            <p className="mt-1.5 text-[13px] text-mute">
-              Upload the scanner file, clear the check list, download for Million. Start here on
-              pay day.
-            </p>
-          </Card>
-        </Link>
-
-        <Link href="/workers" className="group">
-          <Card className="h-full p-5 transition group-hover:border-accent-line group-hover:shadow-sm">
-            <div className="flex items-center justify-between">
-              <div className="text-base font-bold tracking-tight">Workers</div>
-              <span className="text-accent transition group-hover:translate-x-0.5">&rarr;</span>
-            </div>
-            <p className="mt-1.5 text-[13px] text-mute">
-              Everyone on the payroll, their Million code, site, group and scanner number. Add
-              somebody new, or mark somebody as left.
-            </p>
-          </Card>
-        </Link>
+        {[
+          {
+            href: "/month",
+            title: "Monthly pay",
+            body: "The scanner file and the check list, and the allowances and advances that go out with it. Start here on pay day.",
+          },
+          {
+            href: "/workers",
+            title: "Workers",
+            body: "Everyone on the payroll — and behind tabs on the same page, their documents and permits, leave, hostel and transport, warnings and notes.",
+          },
+          {
+            href: "/sales/orders",
+            title: "Sales orders",
+            body: "Write an order and it prices itself from what that dealer pays.",
+          },
+          {
+            href: "/sales/prices",
+            title: "Price lists",
+            body: "What each dealer pays for each product, and from when. Change one and old orders keep the price they were sold at.",
+          },
+        ].map((c) => (
+          <Link key={c.href} href={c.href} className="group">
+            <Card className="h-full p-5 transition group-hover:border-accent-line group-hover:shadow-sm">
+              <div className="flex items-center justify-between">
+                <div className="text-base font-bold tracking-tight">{c.title}</div>
+                <span className="text-accent transition group-hover:translate-x-0.5">&rarr;</span>
+              </div>
+              <p className="mt-1.5 text-[13px] text-mute">{c.body}</p>
+            </Card>
+          </Link>
+        ))}
       </div>
 
       <div className="mt-10 rounded-2xl border border-line bg-white p-5">
