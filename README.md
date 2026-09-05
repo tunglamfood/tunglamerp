@@ -2,15 +2,28 @@
 
 One system for Tung Lam Food Industries, built one module at a time.
 
-| Module | Status |
+| Module | What it does |
 |---|---|
-| **HR** — workers, monthly pay, Million export | working now |
-| Sales — customers, products, sales orders | next |
-| Permits & documents, leave & advances | later |
+| **Dashboard** | Opens with what needs you today — expiring permits, prices below cost, a month waiting to be checked. |
+| **HR** | Monthly pay from the scanner file, workers, allowances & advances, leave, permits, hostel & transport, warnings. |
+| **Sales** | Customers, products, what each dealer pays for each product, and sales orders that price themselves. |
+| **Assistant** | An Ask button on every screen. Answers from the system's own data, and can add records. |
 
 ## HR: what it does
 
 Turns the CheckTime scanner export into a Million payroll import file, and refuses to hand it over until every day adds up.
+
+## The assistant
+
+The **Ask** button in the corner of every screen. It reads the system's own data
+to answer questions — "how many workers have no scanner number", "which permits
+run out soon", "is anything sold below cost to 433" — and can add records for
+you. It cannot delete anything, cannot change many records at once, and cannot
+run the payroll export. Anything it saves is listed under its answer.
+
+It needs a key from console.anthropic.com. Paste it after
+`ANTHROPIC_API_KEY=` in `app/.env.local` and restart. Everything else works
+without it.
 
 ## The database
 
