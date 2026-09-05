@@ -129,13 +129,51 @@ block with no clock times at all and produces junk throughout.)
 The new system credits the public holiday to every active worker automatically, so
 this cannot happen again. See rule 5.5.
 
-### 4.6 Pay rates (reference only — Million computes pay)
+### 4.6 Third defect — decimal subtraction of clock times
+
+Found while building the golden master, not during the paper analysis.
+
+The sheet holds times as hours-dot-minutes and subtracts them as plain decimals:
+`14.23 - 7.30 - 1.40`. When the minutes need to carry, decimal borrows 100 where a
+clock borrows 60, so the day comes out **40 minutes too long**.
+
+The owner pre-borrows the clock-out — writing `26.87` in place of `27:27` — which
+avoids the problem on the hours-worked line. The overtime line is a formula result
+and gets no such treatment.
+
+Measured across June 2026:
+
+| Line | Days affected | Effect |
+|---|---|---|
+| Overtime | 176 of 1,974 normal working days | **+112 hours, about RM1,465** |
+| Hours worked | 3 days the owner did not pre-borrow | +40 min each |
+
+The sign follows the day: a day that ran short loses 40 minutes instead of gaining
+them. The net across June is +112 hours.
+
+**This is why the golden master asserts against what the sheet *meant* —
+`worked - basic - lunch` — rather than what it printed.** Validating against the
+printed figure would have baked the defect into the new system. The counts above
+are pinned by tests in `src/lib/golden-june.test.ts`.
+
+### 4.7 Pay rates (reference only — Million computes pay)
 
 Basic RM65.38/day · OT RM13.08/hr · Rest day and PH OT RM17.43/hr · PH day
 RM65.38 · allowance added · advance deducted.
 
 RM65.38 / 7.5 hrs = RM8.72/hr. x1.5 = RM13.08. x2 = RM17.43. These confirm the
 Million column mapping in section 6.
+
+### 4.8 What the three defects cost together
+
+| Defect | Per month |
+|---|---|
+| Tea break taken as 9 minutes instead of 15 | about RM2,495 over-paid |
+| Decimal borrowing on the overtime line | about RM1,465 over-paid |
+| A public holiday missed for one worker | RM65.38 under-paid |
+
+None was anybody's carelessness; all three are the kind of error a spreadsheet
+cannot catch and a system cannot make.
 
 ## 5. Calculation rules (authoritative)
 
