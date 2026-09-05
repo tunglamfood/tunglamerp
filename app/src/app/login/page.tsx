@@ -1,4 +1,5 @@
 "use client";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Btn, Field, inputCls } from "@/components/ui";
 
@@ -8,6 +9,7 @@ export default function LoginPage() {
   const [pass, setPass] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const router = useRouter();
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -24,9 +26,10 @@ export default function LoginPage() {
         setError(data?.error ?? "Could not sign in. Check your internet and try again.");
         return;
       }
-      // A full page load, not router.push — the browser must send the cookie
-      // it has just been given on the very next request.
-      window.location.href = "/dashboard";
+      // The cookie is already stored by the time this resolves, so the router
+      // will send it. refresh() re-runs the server layout that checks it.
+      router.push("/month");
+      router.refresh();
     } catch {
       setError("Could not reach the system. Check your internet and try again.");
     } finally {
