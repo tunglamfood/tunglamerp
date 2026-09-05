@@ -2,23 +2,16 @@
 
 Turns the CheckTime scanner export into a Million payroll import file.
 
-## Before it will run
+## The database
 
-The system needs somewhere to store its data. The Supabase project the old app
-used no longer exists, so a new one is needed:
+Already set up and running — Supabase project `tunglamfood's Project`, tables
+`hr_workers`, `hr_month_scans`, `hr_month_corrections`, `hr_month_extras`. The
+`hr_` prefix keeps them clear of the previous app's tables, which are still
+there and still empty.
 
-1. Go to supabase.com, sign in, and create a new free project.
-2. Open **Project Settings → API** and copy the **Project URL** and the
-   **service_role / secret** key.
-3. Put them in `app/.env.local`:
-
-   ```
-   SUPABASE_URL=https://your-new-project.supabase.co
-   SUPABASE_SECRET_KEY=your-secret-key
-   ```
-
-4. Open the **SQL Editor** in Supabase, paste in everything from
-   `app/supabase/schema.sql`, and run it. That creates the four tables.
+**If it ever stops working:** free Supabase projects go to sleep after a stretch
+of no use, and the web address stops answering. Sign in at supabase.com, open the
+project, and press Restore. It takes about ten minutes to wake up.
 
 ## Running it
 
@@ -30,7 +23,7 @@ npm run dev     # then open http://localhost:3000
 
 Sign in with the password in `app/.env.local`.
 
-To load the 85 workers, with the app running:
+All 85 workers are already loaded. To reload them from the June key-in sheet:
 
 ```bash
 node scripts/import-workers.mjs
