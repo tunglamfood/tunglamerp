@@ -75,7 +75,7 @@ export const inputCls =
  * drawn by us, not the operating system — see components/dropdown.tsx.
  */
 export function Select({
-  value, options, onChange, className = "", disabled, placeholder, searchable, align,
+  value, options, onChange, className = "", disabled, placeholder, searchable,
 }: {
   value: string;
   options: Option[];
@@ -84,11 +84,10 @@ export function Select({
   disabled?: boolean;
   placeholder?: string;
   searchable?: boolean;
-  align?: "left" | "right";
 }) {
   return (
     <Dropdown value={value} options={options} onChange={onChange} className={className}
-      disabled={disabled} placeholder={placeholder} searchable={searchable} align={align} />
+      disabled={disabled} placeholder={placeholder} searchable={searchable} />
   );
 }
 

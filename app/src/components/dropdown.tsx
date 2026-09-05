@@ -1,5 +1,6 @@
 "use client";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 export interface Option {
   value: string;
@@ -17,6 +18,12 @@ export interface Option {
  * style rule — so the closed box looked like the rest of the system and the
  * open list did not. This draws the list itself: same type, same corners, same
  * teal, and it can carry counts and a search box, which a native list cannot.
+ *
+ * The open list is rendered at the top of the page rather than inside its own
+ * card. Cards, drawers and animated panels each make their own stacking layer,
+ * and a list drawn inside one gets painted over by whatever comes next — which
+ * is exactly what happened to the month picker. Drawn at the top level and
+ * positioned to the button, it can never be clipped by anything.
  */
 export function Dropdown({
   value,
@@ -26,7 +33,6 @@ export function Dropdown({
   className = "",
   disabled,
   searchable,
-  align = "left",
 }: {
   value: string;
   options: Option[];
@@ -36,13 +42,40 @@ export function Dropdown({
   disabled?: boolean;
   /** Adds a filter box. Turns itself on past a dozen options. */
   searchable?: boolean;
-  align?: "left" | "right";
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
+  const [box, setBox] = useState<{ left: number; top: number; width: number; up: boolean } | null>(null);
   const root = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const popup = useRef<HTMLDivElement>(null);
   const listId = useId();
+
+  /** Sit the list under the button — or above it, if the window ends first. */
+  useLayoutEffect(() => {
+    if (!open || !trigger.current) return;
+    const place = () => {
+      const r = trigger.current!.getBoundingClientRect();
+      const room = window.innerHeight - r.bottom;
+      const wanted = Math.min(320, Math.max(160, options.length * 38 + 16));
+      const up = room < wanted && r.top > room;
+      setBox({
+        left: r.left,
+        top: up ? r.top - 6 : r.bottom + 6,
+        width: r.width,
+        up,
+      });
+    };
+    place();
+    window.addEventListener("resize", place);
+    // Any scroll would leave the list floating away from its button, so follow it.
+    window.addEventListener("scroll", place, true);
+    return () => {
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+    };
+  }, [open, options.length]);
 
   const selectable = options.filter((o) => !o.heading);
   const withSearch = searchable ?? selectable.length > 12;
@@ -54,7 +87,9 @@ export function Dropdown({
   useEffect(() => {
     if (!open) return;
     const onDown = (e: MouseEvent) => {
-      if (!root.current?.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      if (root.current?.contains(t) || popup.current?.contains(t)) return;
+      setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false);
@@ -99,6 +134,7 @@ export function Dropdown({
   return (
     <div ref={root} className={`relative ${className}`}>
       <button
+        ref={trigger}
         type="button"
         disabled={disabled}
         aria-haspopup="listbox"
@@ -121,11 +157,18 @@ export function Dropdown({
         </svg>
       </button>
 
-      {open && (
+      {open && box && createPortal(
         <div
-          className={`absolute z-50 mt-1.5 min-w-full overflow-hidden rounded-xl border border-line bg-white shadow-xl ${
-            align === "right" ? "right-0" : "left-0"
-          }`}
+          ref={popup}
+          style={{
+            position: "fixed",
+            left: box.left,
+            top: box.up ? undefined : box.top,
+            bottom: box.up ? window.innerHeight - box.top : undefined,
+            minWidth: box.width,
+            maxWidth: Math.max(box.width, 320),
+          }}
+          className="z-[100] overflow-hidden rounded-xl border border-line bg-white shadow-xl"
           onKeyDown={onListKey}
         >
           {withSearch && (
@@ -140,7 +183,7 @@ export function Dropdown({
             </div>
           )}
 
-          <ul id={listId} role="listbox" className="max-h-72 overflow-y-auto py-1">
+          <ul id={listId} role="listbox" className="max-h-72 overflow-y-auto">
             {shown.length === 0 && (
               <li className="px-3 py-3 text-sm text-mute">Nothing matches that.</li>
             )}
@@ -148,7 +191,7 @@ export function Dropdown({
               if (o.heading) {
                 return (
                   <li key={`h-${o.label}-${i}`}
-                    className="px-3 pb-1 pt-2.5 text-[10px] font-bold uppercase tracking-[0.1em] text-faint">
+                    className="border-b border-line bg-gray-50/70 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-faint">
                     {o.label}
                   </li>
                 );
@@ -186,7 +229,8 @@ export function Dropdown({
               );
             })}
           </ul>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

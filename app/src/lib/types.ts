@@ -95,3 +95,135 @@ export interface Flag {
   suggestLast: string | null;
   message: string; // plain English, shown as-is on screen
 }
+
+/* ── HR stage 2: money and time off ───────────────────────────────────────── */
+
+/**
+ * One money line against a worker in a month. `kind` rather than a column each,
+ * because the factory keeps inventing kinds — levy this year, hostel the next.
+ */
+export interface PayItem {
+  id?: number;
+  monthKey: string;
+  code: string;
+  kind: string; // allowance | advance | deduction | anything
+  label: string; // "Levy", "Hostel", "Attendance"
+  amount: number;
+  note: string | null;
+}
+
+export interface LeaveRecord {
+  id?: number;
+  code: string;
+  kind: string; // Annual | Medical | Hospital | Unpaid | …
+  fromDate: string;
+  toDate: string;
+  days: number;
+  paid: boolean;
+  note: string | null;
+}
+
+/* ── HR stage 3: the things that protect you ──────────────────────────────── */
+
+export interface WorkerDocument {
+  id?: number;
+  code: string;
+  kind: string; // Passport | Work permit | FOMEMA | Insurance
+  number: string | null;
+  issuedOn: string | null;
+  expiresOn: string | null;
+  note: string | null;
+}
+
+export interface Assignment {
+  id?: number;
+  code: string;
+  kind: string; // Hostel | Transport
+  value: string;
+  fromDate: string | null;
+  toDate: string | null;
+  note: string | null;
+}
+
+/* ── HR stage 4: records ──────────────────────────────────────────────────── */
+
+export interface WorkerNote {
+  id?: number;
+  code: string;
+  kind: string; // Warning | Note | Praise
+  onDate: string;
+  subject: string;
+  detail: string | null;
+}
+
+export interface ExitRecord {
+  code: string;
+  toldOn: string | null;
+  lastDay: string | null;
+  reason: string | null;
+  noticeDays: number | null;
+  finalPayNote: string | null;
+  settled: boolean;
+}
+
+/* ── Sales ────────────────────────────────────────────────────────────────── */
+
+export interface Customer {
+  code: string; // Million debtor code, '3030/0003'
+  name: string;
+  shortName: string;
+  state: string;
+  address: string | null;
+  contact: string | null;
+  email: string | null;
+  attn: string | null;
+  incomeTaxNo: string | null;
+  active: boolean;
+}
+
+export interface Product {
+  itemCode: string;
+  description: string;
+  barcode: string | null;
+  itemGroup: string;
+  itemType: string;
+  uom: string;
+  packSize: string;
+  basePrice: number;
+  cost: number;
+  active: boolean;
+}
+
+/** One dealer's price for one product, from a date. */
+export interface PriceRow {
+  id?: number;
+  customerCode: string;
+  itemCode: string;
+  price: number;
+  effectiveFrom: string;
+  note: string | null;
+}
+
+export type OrderStatus = "draft" | "confirmed" | "delivered" | "cancelled";
+
+export interface OrderLine {
+  id?: number;
+  lineNo: number;
+  itemCode: string;
+  qty: number;
+  uom: string;
+  price: number;
+  note: string | null;
+}
+
+export interface SalesOrder {
+  id?: number;
+  orderNo: string;
+  customerCode: string;
+  orderDate: string;
+  deliverOn: string | null;
+  status: OrderStatus;
+  theirRef: string | null;
+  note: string | null;
+  lines: OrderLine[];
+}
