@@ -249,39 +249,48 @@ export function WorkersTable({
           />
         </div>
 
-        <Select value={status} onChange={setStatus} className="w-[150px]">
-          <option value="all">Everyone ({workers.length})</option>
-          {statusNames.map((x) => (
-            <option key={x} value={x}>{label(x)} ({counts.status[x] ?? 0})</option>
-          ))}
-        </Select>
+        <Select value={status} onChange={setStatus} className="w-[156px]"
+          options={[
+            { value: "all", label: "Everyone", note: String(workers.length) },
+            ...statusNames.map((x) => ({
+              value: x, label: label(x), note: String(counts.status[x] ?? 0),
+            })),
+          ]} />
 
-        <Select value={site} onChange={setSite} className="w-[112px]">
-          <option value="all">All sites</option>
-          {sites.map((x) => <option key={x} value={x}>{x} ({counts.site[x] ?? 0})</option>)}
-        </Select>
+        <Select value={site} onChange={setSite} className="w-[126px]"
+          options={[
+            { value: "all", label: "All sites" },
+            ...sites.map((x) => ({ value: x, label: x, note: String(counts.site[x] ?? 0) })),
+          ]} />
 
-        <Select value={group} onChange={setGroup} className="w-[120px]">
-          <option value="all">All groups</option>
-          {groups.map((x) => <option key={x} value={x}>{x} ({counts.group[x] ?? 0})</option>)}
-        </Select>
+        <Select value={group} onChange={setGroup} className="w-[134px]"
+          options={[
+            { value: "all", label: "All groups" },
+            ...groups.map((x) => ({ value: x, label: x, note: String(counts.group[x] ?? 0) })),
+          ]} />
 
-        <Select value={more} onChange={setMore} className="w-[152px]">
-          <option value="all">Anyone</option>
-          <option value="scanner-no">Not on scanner ({workers.length - enrolled})</option>
-          <option value="scanner-yes">On scanner ({enrolled})</option>
-          {nationalities.map((n) => (
-            <option key={n} value={`from:${n}`}>{n} ({counts.nationality[n] ?? 0})</option>
-          ))}
-        </Select>
+        <Select value={more} onChange={setMore} className="w-[168px]"
+          options={[
+            { value: "all", label: "Anyone" },
+            { label: "Scanner", heading: true, value: "" },
+            { value: "scanner-no", label: "Not on scanner", note: String(workers.length - enrolled) },
+            { value: "scanner-yes", label: "On scanner", note: String(enrolled) },
+            ...(nationalities.length
+              ? [{ label: "From", heading: true, value: "" } as const]
+              : []),
+            ...nationalities.map((n) => ({
+              value: `from:${n}`, label: n, note: String(counts.nationality[n] ?? 0),
+            })),
+          ]} />
 
-        <Select value={sort} onChange={(v) => setSort(v as SortKey)} className="w-[124px]">
-          <option value="code">By code</option>
-          <option value="name">By name</option>
-          <option value="site">By site</option>
-          <option value="group">By group</option>
-          <option value="status">By status</option>
-        </Select>
+        <Select value={sort} onChange={(v) => setSort(v as SortKey)} className="w-[136px]"
+          options={[
+            { value: "code", label: "By code" },
+            { value: "name", label: "By name" },
+            { value: "site", label: "By site" },
+            { value: "group", label: "By group" },
+            { value: "status", label: "By status" },
+          ]} />
       </div>
 
       <div className="mb-3 flex items-center gap-3 text-sm">

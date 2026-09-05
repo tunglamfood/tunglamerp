@@ -152,11 +152,9 @@ export function MonthWorkflow({
           delay={0}
         >
           <div className="flex flex-wrap items-center gap-3">
-            <Select value={month} onChange={(v) => void pickMonth(v)} className="w-[184px]">
-              {months.map((m) => (
-                <option key={m} value={m}>{monthLabel(m)}</option>
-              ))}
-            </Select>
+            <Select value={month} onChange={(v) => void pickMonth(v)} className="w-[200px]"
+              searchable={false}
+              options={months.map((m) => ({ value: m, label: monthLabel(m) }))} />
             {loading ? (
               <Chip>checking…</Chip>
             ) : view ? (

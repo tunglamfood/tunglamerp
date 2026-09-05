@@ -1,5 +1,8 @@
 "use client";
 import { ReactNode, useEffect, useRef, useState } from "react";
+import { Dropdown, Option } from "./dropdown";
+
+export type { Option } from "./dropdown";
 
 export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
@@ -68,45 +71,33 @@ export const inputCls =
   "w-full rounded-xl border border-line bg-white px-3 py-2.5 text-sm placeholder:text-faint transition focus:border-accent";
 
 /**
- * A dropdown that looks like the rest of the system.
- *
- * The browser's own select gives no styling to work with, so the native arrow
- * is turned off and drawn back as an SVG the same colour as everything else.
+ * Kept as a thin name over Dropdown so call sites read the same. The list is
+ * drawn by us, not the operating system — see components/dropdown.tsx.
  */
 export function Select({
-  value, onChange, children, className = "", disabled,
+  value, options, onChange, className = "", disabled, placeholder, searchable, align,
 }: {
   value: string;
+  options: Option[];
   onChange: (v: string) => void;
-  children: ReactNode;
   className?: string;
   disabled?: boolean;
+  placeholder?: string;
+  searchable?: boolean;
+  align?: "left" | "right";
 }) {
   return (
-    <div className={`relative ${className}`}>
-      <select
-        value={value}
-        disabled={disabled}
-        onChange={(e) => onChange(e.target.value)}
-        className={`${inputCls} cursor-pointer appearance-none pr-9 font-semibold disabled:cursor-not-allowed disabled:opacity-50`}
-      >
-        {children}
-      </select>
-      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8"
-        strokeLinecap="round" strokeLinejoin="round"
-        className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-faint">
-        <path d="m6 8 4 4 4-4" />
-      </svg>
-    </div>
+    <Dropdown value={value} options={options} onChange={onChange} className={className}
+      disabled={disabled} placeholder={placeholder} searchable={searchable} align={align} />
   );
 }
 
 /**
  * Pick one of the values already in use, or type a new one.
  *
- * The factory's own words — sites, groups, nationalities — are not ours to fix
- * in a list. Whatever has been used before is offered; anything else can be
- * typed, and from then on it is offered too.
+ * The factory's own words — sites, groups, nationalities, statuses — are not
+ * ours to fix in a list. Whatever has been used before is offered; anything
+ * else can be typed, and from then on it is offered too.
  */
 export function Combobox({
   value, options, onChange, placeholder, addLabel = "Add a new one…", disabled,
@@ -124,14 +115,8 @@ export function Combobox({
   if (typing) {
     return (
       <div className="flex gap-2">
-        <input
-          autoFocus
-          className={inputCls}
-          value={value}
-          placeholder={placeholder}
-          disabled={disabled}
-          onChange={(e) => onChange(e.target.value)}
-        />
+        <input autoFocus className={inputCls} value={value} placeholder={placeholder}
+          disabled={disabled} onChange={(e) => onChange(e.target.value)} />
         {options.length > 0 && (
           <button type="button" disabled={disabled}
             onClick={() => { setTyping(false); onChange(options[0]); }}
@@ -144,9 +129,14 @@ export function Combobox({
   }
 
   return (
-    <Select
+    <Dropdown
       value={value}
       disabled={disabled}
+      placeholder="Choose one…"
+      options={[
+        ...options.map((o) => ({ value: o, label: o })),
+        { value: "__new__", label: addLabel },
+      ]}
       onChange={(v) => {
         if (v === "__new__") {
           setTyping(true);
@@ -155,13 +145,7 @@ export function Combobox({
           onChange(v);
         }
       }}
-    >
-      {value === "" && <option value="">Choose one…</option>}
-      {options.map((o) => (
-        <option key={o} value={o}>{o}</option>
-      ))}
-      <option value="__new__">{addLabel}</option>
-    </Select>
+    />
   );
 }
 
