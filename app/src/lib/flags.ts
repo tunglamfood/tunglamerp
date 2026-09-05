@@ -44,6 +44,11 @@ export function flagsForWorker(
 ): Flag[] {
   const out: Flag[] = [];
 
+  // Somebody who never scanned at all this month gets one line saying so, not
+  // one line per working day. Their whole month is a single question — has
+  // this person left? — and 25 identical rows only bury the real problems.
+  const everScanned = days.some((d) => (byDate.get(d.date)?.punches.length ?? 0) > 0);
+
   for (const day of days) {
     const input = byDate.get(day.date);
     if (input?.markedAbsent) continue; // the office has already ruled on it
@@ -85,6 +90,7 @@ export function flagsForWorker(
     if (day.kind !== "NORMAL") continue;
 
     const punches = input?.punches ?? [];
+    if (punches.length === 0 && !everScanned) continue; // covered by NEVER_SCANNED
     if (punches.length === 1) {
       const suggestion = suggestFor(punches[0], defaultStart, defaultFinish);
       const missing = suggestion.first === punches[0] ? "finish" : "start";
@@ -133,9 +139,13 @@ export function flagsForUnmatched(rows: { scannerId: string; name: string }[]): 
   );
 }
 
-export function flagsForNeverScanned(workers: Worker[], seenCodes: Set<string>): Flag[] {
+export function flagsForNeverScanned(
+  workers: Worker[],
+  seenCodes: Set<string>,
+  working: Set<string>,
+): Flag[] {
   return workers
-    .filter((w) => w.status === "active" && !seenCodes.has(w.code))
+    .filter((w) => working.has(w.status) && !seenCodes.has(w.code))
     .map((w) =>
       flag({
         kind: "NEVER_SCANNED",

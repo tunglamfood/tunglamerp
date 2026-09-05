@@ -64,10 +64,16 @@ describe("flagsForWorker", () => {
     expect(flags.some((x) => x.date === "2026-06-06")).toBe(false);
   });
 
-  it("flags a working day with no scan at all", () => {
-    const flags = run([]);
-    const f = flags.find((x) => x.date === "2026-06-02")!;
-    expect(f.kind).toBe("NO_SCAN");
+  it("flags a missed day for somebody who did scan other days", () => {
+    // Scanned on the 3rd but not the 2nd — that single gap is worth a line.
+    const flags = run([{ date: "2026-06-03", punches: ["07:00", "19:00"] }]);
+    expect(flags.find((x) => x.date === "2026-06-02")!.kind).toBe("NO_SCAN");
+  });
+
+  it("does not list every day for somebody who never scanned all month", () => {
+    // 25 identical rows would bury the real problems. The whole month is one
+    // question, answered by the NEVER_SCANNED flag instead.
+    expect(run([])).toHaveLength(0);
   });
 
   it("does not flag an unworked Saturday or public holiday", () => {
@@ -87,6 +93,8 @@ describe("flagsForWorker", () => {
   });
 });
 
+const WORKING = new Set(["active"]);
+
 describe("whole-month flags", () => {
   it("flags a scanner ID that matches no worker", () => {
     const flags = flagsForUnmatched([{ scannerId: "9999", name: "UNKNOWN PERSON" }]);
@@ -96,17 +104,24 @@ describe("whole-month flags", () => {
   });
 
   it("flags an active worker who never scanned all month", () => {
-    const flags = flagsForNeverScanned([W], new Set());
+    const flags = flagsForNeverScanned([W], new Set(), WORKING);
     expect(flags[0].kind).toBe("NEVER_SCANNED");
     expect(flags[0].code).toBe("B32");
   });
 
+  it("flags a worker whose made-up status counts as working", () => {
+    // The office can invent a status; what matters is whether it is paid.
+    const onProbation = { ...W, status: "probation" };
+    expect(flagsForNeverScanned([onProbation], new Set(), new Set(["probation"]))).toHaveLength(1);
+    expect(flagsForNeverScanned([onProbation], new Set(), WORKING)).toHaveLength(0);
+  });
+
   it("does not flag a worker who has left", () => {
-    const flags = flagsForNeverScanned([{ ...W, status: "left" }], new Set());
+    const flags = flagsForNeverScanned([{ ...W, status: "left" }], new Set(), WORKING);
     expect(flags).toHaveLength(0);
   });
 
   it("does not flag a worker who did scan", () => {
-    expect(flagsForNeverScanned([W], new Set(["B32"]))).toHaveLength(0);
+    expect(flagsForNeverScanned([W], new Set(["B32"]), WORKING)).toHaveLength(0);
   });
 });

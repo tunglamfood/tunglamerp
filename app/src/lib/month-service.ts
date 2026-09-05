@@ -23,17 +23,25 @@ export function holidaySet(monthKey: string): Set<string> {
   return new Set(holidaysFor(monthKey).map((h) => isoDate(year, month, h.day)));
 }
 
+/**
+ * Statuses whose people are paid this month. Passed in rather than assumed:
+ * the office can invent a status, and the one thing it must say when it does
+ * is whether those people get paid.
+ */
+export const DEFAULT_WORKING = new Set(["active"]);
+
 export function buildMonthView(
   monthKey: string,
   workers: Worker[],
   scans: Map<string, DayInput[]>,
   unmatched: { scannerId: string; name: string }[] = [],
+  working: Set<string> = DEFAULT_WORKING,
 ): MonthView {
   const { year, month } = parseMonthKey(monthKey);
   const holidays = holidaySet(monthKey);
   const workingDays = workingDaysInMonth(year, month, holidays);
 
-  const active = workers.filter((w) => w.status === "active");
+  const active = workers.filter((w) => working.has(w.status));
   const totals: MonthTotals[] = [];
   const flags: Flag[] = [];
 
@@ -50,7 +58,7 @@ export function buildMonthView(
   }
 
   flags.push(...flagsForUnmatched(unmatched));
-  flags.push(...flagsForNeverScanned(workers, new Set(scans.keys())));
+  flags.push(...flagsForNeverScanned(workers, new Set(scans.keys()), working));
 
   totals.sort((a, b) => a.code.localeCompare(b.code));
   return { totals, flags, workers };

@@ -1,6 +1,21 @@
-export type Site = "KB" | "KL";
-export type Group = "B1" | "B2" | "B3" | "B4";
-export type WorkerStatus = "active" | "left" | "balik-cuti";
+// Site, group, nationality and status are the factory's own words, not ours.
+// A new site can open, groups get renumbered, somebody is hired from a country
+// nobody was hired from before — so these are plain text, chosen from what is
+// already in use or typed fresh.
+export type Site = string;
+export type Group = string;
+export type WorkerStatus = string;
+
+/**
+ * Status is the one label the payroll reads: only people whose status counts as
+ * working are calculated and exported. So a status carries that decision with
+ * it rather than being guessed from its name.
+ */
+export interface WorkerStatusOption {
+  name: string;
+  countsAsWorking: boolean;
+  sortOrder: number;
+}
 
 export interface Worker {
   code: string; // Million code — the primary key, e.g. "B32"

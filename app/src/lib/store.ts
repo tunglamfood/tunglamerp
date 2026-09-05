@@ -1,7 +1,7 @@
 // The only place the database is reached from.
 import "server-only";
 import { serverSupabase } from "./supabase-server";
-import { DayInput, PayExtras, Worker } from "./types";
+import { DayInput, PayExtras, Worker, WorkerStatusOption } from "./types";
 import {
   CorrectionDbRow,
   ScanDbRow,
@@ -27,6 +27,31 @@ export async function upsertWorker(w: Worker): Promise<void> {
     .from("hr_workers")
     .upsert({ ...workerToRow(w), updated_at: new Date().toISOString() }, { onConflict: "code" });
   fail(`Could not save ${w.name}`, error);
+}
+
+export async function listStatuses(): Promise<WorkerStatusOption[]> {
+  const { data, error } = await serverSupabase()
+    .from("hr_statuses")
+    .select("name, counts_as_working, sort_order")
+    .order("sort_order");
+  fail("Could not load the status list", error);
+  return (data ?? []).map((r) => ({
+    name: r.name as string,
+    countsAsWorking: r.counts_as_working as boolean,
+    sortOrder: r.sort_order as number,
+  }));
+}
+
+export async function upsertStatus(option: WorkerStatusOption): Promise<void> {
+  const { error } = await serverSupabase().from("hr_statuses").upsert(
+    {
+      name: option.name,
+      counts_as_working: option.countsAsWorking,
+      sort_order: option.sortOrder,
+    },
+    { onConflict: "name" },
+  );
+  fail(`Could not save the status "${option.name}"`, error);
 }
 
 export async function deleteWorker(code: string): Promise<void> {

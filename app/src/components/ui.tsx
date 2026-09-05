@@ -102,6 +102,70 @@ export function Select({
 }
 
 /**
+ * Pick one of the values already in use, or type a new one.
+ *
+ * The factory's own words — sites, groups, nationalities — are not ours to fix
+ * in a list. Whatever has been used before is offered; anything else can be
+ * typed, and from then on it is offered too.
+ */
+export function Combobox({
+  value, options, onChange, placeholder, addLabel = "Add a new one…", disabled,
+}: {
+  value: string;
+  options: readonly string[];
+  onChange: (v: string) => void;
+  placeholder?: string;
+  addLabel?: string;
+  disabled?: boolean;
+}) {
+  const known = options.includes(value) && value !== "";
+  const [typing, setTyping] = useState(!known && value !== "");
+
+  if (typing) {
+    return (
+      <div className="flex gap-2">
+        <input
+          autoFocus
+          className={inputCls}
+          value={value}
+          placeholder={placeholder}
+          disabled={disabled}
+          onChange={(e) => onChange(e.target.value)}
+        />
+        {options.length > 0 && (
+          <button type="button" disabled={disabled}
+            onClick={() => { setTyping(false); onChange(options[0]); }}
+            className="shrink-0 rounded-xl border border-line bg-white px-3 text-sm font-semibold text-mute transition hover:bg-gray-50">
+            Pick one
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <Select
+      value={value}
+      disabled={disabled}
+      onChange={(v) => {
+        if (v === "__new__") {
+          setTyping(true);
+          onChange("");
+        } else {
+          onChange(v);
+        }
+      }}
+    >
+      {value === "" && <option value="">Choose one…</option>}
+      {options.map((o) => (
+        <option key={o} value={o}>{o}</option>
+      ))}
+      <option value="__new__">{addLabel}</option>
+    </Select>
+  );
+}
+
+/**
  * A panel that slides in from the right over a list that stays exactly where
  * it was. Escape closes it, as does the scrim behind.
  */
@@ -227,10 +291,12 @@ export function Step({
 /* ── A file picker you can actually see ────────────────────────────────────── */
 
 export function FilePicker({
-  label, hint, required, accept = ".xls,.xlsx", file, onPick, disabled,
+  label, hint, required, accept = ".xls,.xlsx", file, onPick, disabled, template,
 }: {
   label: string; hint?: string; required?: boolean; accept?: string;
   file: File | null; onPick: (f: File | null) => void; disabled?: boolean;
+  /** Optional "download a blank one" link, for files the office has to make. */
+  template?: { href: string; label: string };
 }) {
   const ref = useRef<HTMLInputElement>(null);
   const [over, setOver] = useState(false);
@@ -248,6 +314,12 @@ export function FilePicker({
         <span className={`text-[10px] font-bold uppercase tracking-wider ${required ? "text-bad" : "text-faint"}`}>
           {required ? "needed" : "optional"}
         </span>
+        {template && (
+          <a href={template.href} download
+            className="ml-auto text-[11px] font-semibold text-accent underline underline-offset-2 hover:text-accent-hover">
+            {template.label}
+          </a>
+        )}
       </div>
 
       <div
@@ -262,7 +334,12 @@ export function FilePicker({
         }}
         className={`rounded-2xl border-2 border-dashed p-5 transition ${border} ${disabled ? "opacity-50" : ""}`}
       >
-        <input ref={ref} type="file" accept={accept} className="sr-only" disabled={disabled}
+        {/* The browser prints its own "No file chosen" beside a file input and
+            gives no way to restyle it, so the real input is taken out of the
+            layout completely and driven by the button below. */}
+        <input ref={ref} type="file" accept={accept} disabled={disabled} tabIndex={-1}
+          aria-hidden="true"
+          style={{ position: "absolute", width: 1, height: 1, opacity: 0, pointerEvents: "none" }}
           onChange={(e) => onPick(e.target.files?.[0] ?? null)} />
 
         {file ? (
@@ -283,7 +360,8 @@ export function FilePicker({
             </Btn>
           </div>
         ) : (
-          <div className="flex items-center gap-3">
+          <button type="button" disabled={disabled} onClick={() => ref.current?.click()}
+            className="flex w-full items-center gap-3 text-left disabled:cursor-not-allowed">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent">
               <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6"
                 strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
@@ -291,13 +369,13 @@ export function FilePicker({
               </svg>
             </div>
             <div className="min-w-0 flex-1">
-              <div className="text-sm font-semibold">No file chosen yet</div>
+              <div className="text-sm font-semibold">Choose a file, or drag one here</div>
               {hint && <div className="text-xs text-mute">{hint}</div>}
             </div>
-            <Btn kind="ghost" size="sm" disabled={disabled} onClick={() => ref.current?.click()}>
-              Choose file
-            </Btn>
-          </div>
+            <span className="shrink-0 rounded-xl border border-line bg-white px-3 py-1.5 text-sm font-semibold">
+              Browse
+            </span>
+          </button>
         )}
       </div>
     </div>

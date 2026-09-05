@@ -1,12 +1,24 @@
 "use client";
 import { useMemo, useState } from "react";
-import { Btn, Card, Chip, FilePicker, Notice, Stat, Step, StepState } from "@/components/ui";
+import { Btn, Card, Chip, FilePicker, Notice, Select, Stat, Step, StepState } from "@/components/ui";
 import { Flag } from "@/lib/types";
 import { monthLabel } from "@/lib/time";
 import { MonthView, hasAnything } from "@/lib/month-view";
 
 /** RM per overtime hour — used only to show what the tea break correction is worth. */
 const OT_RATE = 13.08;
+
+/** The last two years of months, newest first. Friendlier than the browser's
+ *  own month widget, which differs on every machine and has no words on it. */
+function recentMonths(from: string, count = 24): string[] {
+  const [y, m] = from.split("-").map(Number);
+  const out: string[] = [];
+  for (let i = 0; i < count; i++) {
+    const d = new Date(y, m - 1 - i, 1);
+    out.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
+  }
+  return out;
+}
 
 export function MonthWorkflow({
   initialMonth,
@@ -23,6 +35,7 @@ export function MonthWorkflow({
   const [loading, setLoading] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const [openWorker, setOpenWorker] = useState<string | null>(null);
+  const months = useMemo(() => recentMonths(initialMonth), [initialMonth]);
 
   /**
    * Changing the month opens whatever is already stored for it. This runs from
@@ -139,13 +152,11 @@ export function MonthWorkflow({
           delay={0}
         >
           <div className="flex flex-wrap items-center gap-3">
-            <input
-              type="month"
-              value={month}
-              onChange={(e) => void pickMonth(e.target.value)}
-              className="cursor-pointer rounded-xl border border-line bg-white px-3 py-2.5 text-sm font-semibold transition focus:border-accent"
-            />
-            <span className="text-sm font-semibold">{monthLabel(month)}</span>
+            <Select value={month} onChange={(v) => void pickMonth(v)} className="w-[184px]">
+              {months.map((m) => (
+                <option key={m} value={m}>{monthLabel(m)}</option>
+              ))}
+            </Select>
             {loading ? (
               <Chip>checking…</Chip>
             ) : view ? (
@@ -171,7 +182,7 @@ export function MonthWorkflow({
           <div className="grid gap-4 lg:grid-cols-2">
             <FilePicker
               label="CheckTime In Out Report"
-              hint="Excel file from the scanner"
+              hint="The In Out Report, straight out of CheckTime"
               required
               file={scanFile}
               onPick={setScanFile}
@@ -179,10 +190,11 @@ export function MonthWorkflow({
             />
             <FilePicker
               label="Allowance & advance sheet"
-              hint="Only if you keep one — needs CODE, ALLOWANCE, ADVANCE columns"
+              hint="Only if you pay allowances or hold advances this month"
               file={allowanceFile}
               onPick={setAllowanceFile}
               disabled={busy}
+              template={{ href: "/api/template/allowances", label: "Download blank template" }}
             />
           </div>
 
@@ -205,7 +217,7 @@ export function MonthWorkflow({
         {/* ── 3 ─────────────────────────────────────────────────────────── */}
         <Step
           n={3}
-          title="Check the days it could not read"
+          title="Check anything that does not add up"
           state={step3}
           hint={
             !view
@@ -218,6 +230,16 @@ export function MonthWorkflow({
         >
           {view && (
             <>
+              {outstanding > 100 && (
+                <div className="mb-4">
+                  <Notice tone="info">
+                    A list this long means the scanner was not running properly that month —
+                    people missing whole days, or scanning once instead of twice. Once everyone
+                    scans in and out each day this should be a handful of rows, or none.
+                  </Notice>
+                </div>
+              )}
+
               <div className="mb-4 flex flex-wrap items-center gap-2">
                 {outstanding === 0 ? (
                   <Chip tone="teal">all clear</Chip>

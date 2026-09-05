@@ -6,7 +6,7 @@ import { readCheckTime } from "@/lib/checktime-reader";
 import { readAllowances } from "@/lib/allowance-reader";
 import { buildMonthView } from "@/lib/month-service";
 import { loadMonth } from "@/lib/store";
-import { isMonthKey } from "@/lib/month-loader";
+import { isMonthKey, workingStatuses } from "@/lib/month-loader";
 import { ScanDbRow } from "@/lib/store-mapping";
 
 export const runtime = "nodejs";
@@ -35,7 +35,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const workers = await listWorkers();
+    const [workers, working] = await Promise.all([listWorkers(), workingStatuses()]);
     // The scanner may report "0018" where the list holds "18".
     const byScannerId = new Map(
       workers.filter((w) => w.scannerId).map((w) => [String(Number(w.scannerId)), w]),
@@ -68,6 +68,7 @@ export async function POST(request: Request) {
       workers,
       scans,
       [...unmatched].map(([scannerId, name]) => ({ scannerId, name })),
+      working,
     );
 
     return Response.json({

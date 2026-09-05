@@ -1,17 +1,18 @@
 // The worker list is fetched on the server, so the page arrives with the data
 // already in it rather than blank-then-populated.
-import { listWorkers } from "@/lib/store";
+import { listStatuses, listWorkers } from "@/lib/store";
 import { WorkersTable } from "@/components/workers-table";
 import { Card } from "@/components/ui";
-import { Worker } from "@/lib/types";
+import { Worker, WorkerStatusOption } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
 export default async function WorkersPage() {
   let workers: Worker[] = [];
+  let statuses: WorkerStatusOption[] = [];
   let problem: string | null = null;
   try {
-    workers = await listWorkers();
+    [workers, statuses] = await Promise.all([listWorkers(), listStatuses()]);
   } catch (e) {
     // Most likely the database tables have not been created yet. Say so in
     // words rather than crashing the page.
@@ -31,5 +32,5 @@ export default async function WorkersPage() {
     );
   }
 
-  return <WorkersTable workers={workers} />;
+  return <WorkersTable workers={workers} statuses={statuses} />;
 }
