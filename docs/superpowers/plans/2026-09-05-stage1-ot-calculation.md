@@ -53,8 +53,11 @@ npx --yes create-next-app@latest app --typescript --tailwind --eslint --app --sr
 cd app
 npm install xlsx@0.18.5 @supabase/supabase-js server-only
 npm install -D vitest
-git init
 ```
+
+The git repository already exists one level up at `TungLamHR/`, holding the spec
+and this plan. Do not run `git init` inside `app/` — a nested repository would
+hide the code from the history that documents it.
 
 - [ ] **Step 2: Copy the four proven library files and the UI kit across**
 
@@ -267,14 +270,15 @@ describe("calcDay — normal day", () => {
   });
 
   it("takes no tea break when overtime is exactly 2 hours", () => {
-    // 07:00 to 16:30 = 570. 570 - 450 - 60 = 120 exactly — not more than 2h.
-    const r = calcDay(d("2026-06-02", ["07:00", "16:30"]), "NORMAL");
+    // 07:00 to 17:30 = 630. 630 - 450 - 60 = 120 exactly — not more than 2h.
+    const r = calcDay(d("2026-06-02", ["07:00", "17:30"]), "NORMAL");
     expect(r.otMin).toBe(120);
     expect(r.r2Min).toBe(0);
   });
 
   it("takes the tea break when overtime is one minute over 2 hours", () => {
-    const r = calcDay(d("2026-06-02", ["07:00", "16:31"]), "NORMAL");
+    // 07:00 to 17:31 = 631. 631 - 450 - 60 = 121, one minute past the threshold.
+    const r = calcDay(d("2026-06-02", ["07:00", "17:31"]), "NORMAL");
     expect(r.r2Min).toBe(15);
     expect(r.otMin).toBe(106); // 121 - 15
   });
@@ -288,7 +292,7 @@ describe("calcDay — normal day", () => {
   });
 
   it("handles a shift that runs past midnight", () => {
-    // 11:10 to 01:59 next day = 890 min.
+    // 11:10 to 01:59 next day: 119 - 670 = -551, plus 24h = 889 min.
     const r = calcDay(d("2026-06-02", ["11:10", "01:59"]), "NORMAL");
     expect(r.workedMin).toBe(889);
   });
@@ -667,7 +671,7 @@ Nothing incomplete may reach the export. This produces the list the office clear
 - Test: `TungLamHR/app/src/lib/flags.test.ts`
 
 **Interfaces:**
-- Consumes: `DayInput`, `DayResult`, `Flag`, `Worker` from `types.ts`; `dayTimes` from `day-calc.ts`; `fmtClock` from `time.ts`
+- Consumes: `DayInput`, `DayResult`, `Flag`, `Worker` from `types.ts`
 - Produces:
   - `TOO_LONG_MIN`, `TOO_SHORT_MIN`, `DEFAULT_FINISH` — constants
   - `flagsForWorker(worker: Worker, days: DayResult[], byDate: Map<string, DayInput>, defaultFinish?: string): Flag[]`
@@ -786,7 +790,6 @@ Create `src/lib/flags.ts`:
 // those days would be worse than the spreadsheet it replaces, so nothing
 // incomplete is ever given a number — it is put on this list instead.
 import { DayInput, DayResult, Flag, Worker } from "./types";
-import { dayTimes } from "./day-calc";
 
 export const TOO_LONG_MIN = 16 * 60;
 export const TOO_SHORT_MIN = 2 * 60;
@@ -834,7 +837,6 @@ export function flagsForWorker(
 
     const punches = input?.punches ?? [];
     if (punches.length === 1) {
-      const { first } = dayTimes({ date: day.date, punches });
       out.push(flag({
         kind: "SINGLE_PUNCH", code: worker.code, name: worker.name, date: day.date,
         punches,
@@ -1540,9 +1542,11 @@ const testable = fixture.workers.filter(
 );
 
 describe("June 2026 golden master", () => {
-  it("has the owner's 85 workers, 79 of them with real data", () => {
+  it("has the owner's 85 workers, 80 of them with real data", () => {
     expect(fixture.workers).toHaveLength(85);
-    expect(testable.length).toBe(79);
+    // Five blocks hold no clock times at all: DIPESH, SHOHEL, RITESH, RAMESH
+    // and MUKHIYA BIN SHAMBHU. Verified against the workbook.
+    expect(testable.length).toBe(80);
   });
 
   it.each(testable.map((w) => [w.name, w] as const))(
@@ -1615,7 +1619,7 @@ describe("June 2026 golden master", () => {
 - [ ] **Step 4: Run the golden master**
 
 Run: `npx vitest run src/lib/golden-june.test.ts`
-Expected: PASS — 160 assertions across 79 workers.
+Expected: PASS — 160 assertions across 80 workers.
 
 If any worker fails, the calculation is wrong, not the fixture. Read the named worker and day out of the failure message and compare against `Payroll_June_Sample.xlsx` before changing anything.
 
@@ -1783,7 +1787,6 @@ Implement the nine functions listed under **Interfaces** above, plus the three p
 import "server-only";
 import { serverSupabase } from "./supabase-server";
 import { DayInput, PayExtras, Worker } from "./types";
-import { ScanRow } from "./checktime-reader";
 
 export interface WorkerRow {
   code: string; scanner_id: string; name: string; site: string;
@@ -2074,6 +2077,7 @@ The payday loop end to end. Split from Task 10 because a reviewer could accept t
 - Consumes: everything from Tasks 2–8
 - Produces:
   - `interface MonthView { totals: MonthTotals[]; flags: Flag[]; workers: Worker[] }`
+  - `holidaySet(monthKey: string): Set<string>` — `holidaysFor` returns `{ day, name }` records, but every calculation function keys on ISO dates. Convert once, here, and nowhere else.
   - `buildMonthView(monthKey: string, workers: Worker[], scans: Map<string, DayInput[]>, extras: Map<string, PayExtras>): MonthView`
 
 - [ ] **Step 1: Write the failing test**
@@ -2087,7 +2091,13 @@ Expected: FAIL — `Failed to resolve import "./month-service"`
 
 - [ ] **Step 3: Write `src/lib/month-service.ts`**
 
-`buildMonthView` resolves the holiday set with `holidaysFor(monthKey)`, computes `workingDaysInMonth` once, then for each active worker: looks up their `DayInput[]` by code, calls `buildMonthDays`, `calcMonth` and `flagsForWorker`, and collects the results. It appends `flagsForUnmatched` for scanner IDs with no worker and `flagsForNeverScanned` for active workers with no scans. Totals are sorted by code so the Million file always comes out in the same order.
+`buildMonthView` resolves the holiday set with `holidaysFor(monthKey)`, computes `workingDaysInMonth` once, then for each active worker: looks up their `DayInput[]` by code, reshapes it into the `Map<string, DayInput>` keyed by date that `buildMonthDays` and `flagsForWorker` both expect, and calls `buildMonthDays`, `calcMonth` and `flagsForWorker`, collecting the results.
+
+```ts
+// The store hands back a sorted array per worker; both buildMonthDays and
+// flagsForWorker key on the date, so reshape once and pass the same map to both.
+const byDate = new Map((scans.get(worker.code) ?? []).map((d) => [d.date, d]));
+``` It appends `flagsForUnmatched` for scanner IDs with no worker and `flagsForNeverScanned` for active workers with no scans. Totals are sorted by code so the Million file always comes out in the same order.
 
 - [ ] **Step 4: Run the test to verify it passes**
 
@@ -2203,7 +2213,7 @@ describe("comparison against the old spreadsheet", () => {
 
   it("reports no difference when nobody passed 2 hours of overtime", () => {
     const byDate = new Map<string, DayInput>([
-      ["2026-06-02", { date: "2026-06-02", punches: ["07:00", "16:00"] }], // 90 min OT
+      ["2026-06-02", { date: "2026-06-02", punches: ["07:00", "17:00"] }], // 600 - 450 - 60 = 90 min OT
     ]);
     const days = buildMonthDays(2026, 6, byDate, JUNE_HOLIDAYS);
     const t = calcMonth("B32", days, 25);
@@ -2271,7 +2281,7 @@ git commit -m "feat: show the old spreadsheet's overtime beside the corrected fi
 
 ## Definition of done for Stage 1
 
-- [ ] `npm test` passes, including the golden master over 79 real workers.
+- [ ] `npm test` passes, including the golden master over 80 real workers.
 - [ ] `CHECKTIME_InOutReportAll.xlsx` uploads and produces a flag list and a summary.
 - [ ] Export is refused, in plain English, while any flag is outstanding.
 - [ ] The downloaded file opens in Excel as `.xls` with all 37 Million headers intact.
