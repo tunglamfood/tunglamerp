@@ -45,6 +45,14 @@ export interface MonthTotals {
   phDays: number;
   phOtHours: number;
   nonPayLeave: number;
+  /**
+   * What the old spreadsheet would have printed for overtime: nine minutes
+   * taken from every basic day, instead of fifteen taken only from days that
+   * passed two hours. Shown beside `otHours` so the correction is visible and
+   * can be explained to a worker who asks. See the spec, section 4.4.
+   */
+  otHoursOldSheet: number;
+  r2DifferenceHours: number;
 }
 
 /** Allowance and advance, from the office's uploaded sheet. */
