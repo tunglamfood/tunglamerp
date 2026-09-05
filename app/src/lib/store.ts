@@ -17,20 +17,20 @@ function fail(what: string, error: { message: string } | null): void {
 }
 
 export async function listWorkers(): Promise<Worker[]> {
-  const { data, error } = await serverSupabase().from("workers").select("*").order("code");
+  const { data, error } = await serverSupabase().from("hr_workers").select("*").order("code");
   fail("Could not load the worker list", error);
   return ((data ?? []) as WorkerRow[]).map(rowToWorker);
 }
 
 export async function upsertWorker(w: Worker): Promise<void> {
   const { error } = await serverSupabase()
-    .from("workers")
+    .from("hr_workers")
     .upsert({ ...workerToRow(w), updated_at: new Date().toISOString() }, { onConflict: "code" });
   fail(`Could not save ${w.name}`, error);
 }
 
 export async function deleteWorker(code: string): Promise<void> {
-  const { error } = await serverSupabase().from("workers").delete().eq("code", code);
+  const { error } = await serverSupabase().from("hr_workers").delete().eq("code", code);
   fail(`Could not remove worker ${code}`, error);
 }
 
@@ -46,7 +46,7 @@ export async function saveMonthScans(monthKey: string, rows: ScanDbRow[]): Promi
   const codes = [...new Set(rows.map((r) => r.code))];
   if (codes.length > 0) {
     const { error } = await db
-      .from("month_scans")
+      .from("hr_month_scans")
       .delete()
       .eq("month_key", monthKey)
       .in("code", codes);
@@ -54,7 +54,7 @@ export async function saveMonthScans(monthKey: string, rows: ScanDbRow[]): Promi
   }
   if (rows.length === 0) return;
   const { error } = await db
-    .from("month_scans")
+    .from("hr_month_scans")
     .insert(rows.map((r) => ({ month_key: monthKey, ...r })));
   fail("Could not save the scan data", error);
 }
@@ -66,7 +66,7 @@ export async function saveCorrection(
   patch: Pick<DayInput, "firstOverride" | "lastOverride" | "markedAbsent">,
 ): Promise<void> {
   const { error } = await serverSupabase()
-    .from("month_corrections")
+    .from("hr_month_corrections")
     .upsert(
       {
         month_key: monthKey,
@@ -86,9 +86,9 @@ export async function saveCorrection(
 export async function loadMonth(monthKey: string): Promise<Map<string, DayInput[]>> {
   const db = serverSupabase();
   const [scans, corrections] = await Promise.all([
-    db.from("month_scans").select("code, work_date, punches").eq("month_key", monthKey),
+    db.from("hr_month_scans").select("code, work_date, punches").eq("month_key", monthKey),
     db
-      .from("month_corrections")
+      .from("hr_month_corrections")
       .select("code, work_date, first_override, last_override, marked_absent")
       .eq("month_key", monthKey),
   ]);
@@ -103,7 +103,7 @@ export async function loadMonth(monthKey: string): Promise<Map<string, DayInput[
 export async function saveExtras(monthKey: string, extras: PayExtras[]): Promise<void> {
   if (extras.length === 0) return;
   const { error } = await serverSupabase()
-    .from("month_extras")
+    .from("hr_month_extras")
     .upsert(
       extras.map((e) => ({
         month_key: monthKey,
@@ -118,7 +118,7 @@ export async function saveExtras(monthKey: string, extras: PayExtras[]): Promise
 
 export async function loadExtras(monthKey: string): Promise<Map<string, PayExtras>> {
   const { data, error } = await serverSupabase()
-    .from("month_extras")
+    .from("hr_month_extras")
     .select("code, allowance, advance")
     .eq("month_key", monthKey);
   fail("Could not load the allowance and advance figures", error);

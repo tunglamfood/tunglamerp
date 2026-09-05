@@ -21,13 +21,31 @@ function run(entries: DayInput[]) {
 }
 
 describe("flagsForWorker", () => {
-  it("flags a day with only one punch and suggests the standard finish time", () => {
+  it("treats a lone morning punch as the clock-in and suggests a finish", () => {
     const flags = run([{ date: "2026-06-02", punches: ["07:06"] }]);
     const f = flags.find((x) => x.date === "2026-06-02")!;
     expect(f.kind).toBe("SINGLE_PUNCH");
     expect(f.suggestFirst).toBe("07:06");
     expect(f.suggestLast).toBe("19:00");
     expect(f.message).toContain("scanned once");
+  });
+
+  it("treats a lone evening punch as the clock-out and suggests a start", () => {
+    // Someone whose only scan is at 20:39 did not arrive at 20:39. Suggesting
+    // a finish of 19:00 would put the end of the day before its beginning.
+    const flags = run([{ date: "2026-06-02", punches: ["20:39"] }]);
+    const f = flags.find((x) => x.date === "2026-06-02")!;
+    expect(f.suggestFirst).toBe("07:00");
+    expect(f.suggestLast).toBe("20:39");
+  });
+
+  it("never suggests a finish that falls before the start", () => {
+    for (const punch of ["04:37", "07:06", "12:24", "14:00", "19:08", "21:00", "23:45"]) {
+      const f = run([{ date: "2026-06-02", punches: [punch] }]).find(
+        (x) => x.date === "2026-06-02",
+      )!;
+      expect(f.suggestFirst! < f.suggestLast!, `${punch} suggested ${f.suggestFirst}-${f.suggestLast}`).toBe(true);
+    }
   });
 
   it("flags a day over 16 hours", () => {

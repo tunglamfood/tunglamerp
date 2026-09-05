@@ -4,11 +4,32 @@
 // those days would be worse than the spreadsheet it replaces, so nothing
 // incomplete is ever given a number — it is put on this list instead.
 import { DayInput, DayResult, Flag, Worker } from "./types";
+import { parseTime } from "./time";
 
 export const TOO_LONG_MIN = 16 * 60;
 export const TOO_SHORT_MIN = 2 * 60;
-/** Offered as the pre-filled finish time when someone forgot to scan out. */
+/** Pre-filled when someone forgot to scan in or out. */
+export const DEFAULT_START = "07:00";
 export const DEFAULT_FINISH = "19:00";
+/**
+ * A lone punch this late in the day is a clock-OUT, not a clock-in — nobody
+ * starts a shift at half past eight in the evening. In the trial data 113 of
+ * the 244 single-punch days fall here, and treating them as arrivals would put
+ * the end of the day before its beginning.
+ */
+export const LONE_PUNCH_IS_FINISH_AFTER_MIN = 14 * 60;
+
+/** Which way round to read the one scan the worker did make. */
+export function suggestFor(
+  punch: string,
+  defaultStart: string,
+  defaultFinish: string,
+): { first: string; last: string } {
+  const min = parseTime(punch);
+  return min != null && min >= LONE_PUNCH_IS_FINISH_AFTER_MIN
+    ? { first: defaultStart, last: punch }
+    : { first: punch, last: defaultFinish };
+}
 
 function flag(partial: Omit<Flag, "punches"> & { punches?: string[] }): Flag {
   return { punches: [], ...partial };
@@ -19,6 +40,7 @@ export function flagsForWorker(
   days: DayResult[],
   byDate: Map<string, DayInput>,
   defaultFinish: string = DEFAULT_FINISH,
+  defaultStart: string = DEFAULT_START,
 ): Flag[] {
   const out: Flag[] = [];
 
@@ -64,6 +86,8 @@ export function flagsForWorker(
 
     const punches = input?.punches ?? [];
     if (punches.length === 1) {
+      const suggestion = suggestFor(punches[0], defaultStart, defaultFinish);
+      const missing = suggestion.first === punches[0] ? "finish" : "start";
       out.push(
         flag({
           kind: "SINGLE_PUNCH",
@@ -71,9 +95,9 @@ export function flagsForWorker(
           name: worker.name,
           date: day.date,
           punches,
-          suggestFirst: punches[0],
-          suggestLast: defaultFinish,
-          message: `${worker.name} scanned once on this day, so we cannot tell how long they worked. Accept the suggested finish time or correct it.`,
+          suggestFirst: suggestion.first,
+          suggestLast: suggestion.last,
+          message: `${worker.name} scanned once on this day, so we cannot tell how long they worked. Accept the suggested ${missing} time or correct it.`,
         }),
       );
     } else {
