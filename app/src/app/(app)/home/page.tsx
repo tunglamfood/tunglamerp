@@ -1,59 +1,121 @@
+// The dashboard. What is true right now, and what needs somebody today.
 import Link from "next/link";
-import { Card } from "@/components/ui";
+import { Card, Stat } from "@/components/ui";
+import { listStatuses, listWorkers } from "@/lib/store";
+import { listAssignments, listDocuments } from "@/lib/store-hr";
+import { listCustomers, listOrders, listPrices, listProducts } from "@/lib/store-sales";
+import { loadMonthView } from "@/lib/month-loader";
+import { alertsFor, figuresFor, Alert } from "@/lib/dashboard";
+import { hasAnything } from "@/lib/month-view";
+import { monthLabel } from "@/lib/time";
 
-const ROUTINE = [
-  {
-    n: 1,
-    title: "Export from the scanner",
-    body: "In CheckTime, run the In Out Report for the month and save it. That is the only file the system needs.",
-  },
-  {
-    n: 2,
-    title: "Drop it into Monthly pay",
-    body: "Pick the month, choose the file, press Read the file. The system works out basic days, overtime, rest days and holidays for everyone.",
-  },
-  {
-    n: 3,
-    title: "Work down the check list",
-    body: "Any day it cannot read — someone forgot to scan out, a day looks far too long — is listed with a suggested time. Accept it or correct it.",
-  },
-  {
-    n: 4,
-    title: "Download and import",
-    body: "Once the list is empty the download unlocks. Bring that file into Million and it makes the payslips.",
-  },
-];
+export const dynamic = "force-dynamic";
 
-export default function HomePage() {
+const money = (n: number) =>
+  n.toLocaleString("en-MY", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+
+const TONE: Record<Alert["level"], { card: string; dot: string; label: string }> = {
+  bad: { card: "border-bad/25 bg-bad-soft", dot: "bg-bad", label: "text-bad" },
+  warn: { card: "border-warn-line bg-warn-soft", dot: "bg-warn", label: "text-warn" },
+  info: { card: "border-accent-line bg-accent-soft", dot: "bg-accent", label: "text-accent" },
+};
+
+export default async function DashboardPage() {
+  const today = new Date().toISOString().slice(0, 10);
+  const monthKey = today.slice(0, 7);
+
+  const [workers, statuses, documents, assignments, customers, products, prices, orders] =
+    await Promise.all([
+      listWorkers(), listStatuses(), listDocuments(), listAssignments(),
+      listCustomers(), listProducts(), listPrices(), listOrders(),
+    ]).catch(() => [[], [], [], [], [], [], [], []] as never);
+
+  const working = new Set(statuses.filter((s) => s.countsAsWorking).map((s) => s.name));
+
+  // The month is only worth mentioning once something has been uploaded for it.
+  let monthFlags: number | null = null;
+  try {
+    const view = await loadMonthView(monthKey);
+    monthFlags = hasAnything({ ...view, extras: {} }) ? view.flags.length : null;
+  } catch {
+    monthFlags = null;
+  }
+
+  const figures = figuresFor({ workers, working, customers, products, orders, prices, today });
+  const alerts = alertsFor({
+    documents, workers, working, customers, products, prices, assignments,
+    today, monthFlags, monthKey,
+  });
+
   return (
     <>
-      <div className="mb-8">
+      <div className="mb-7">
         <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-faint">
           Tung Lam Food Industries
         </div>
         <h1 className="mt-1 text-3xl font-extrabold tracking-tight">
-          One place for the whole factory.
+          {alerts.length === 0
+            ? "Nothing needs you today."
+            : alerts.length === 1
+              ? "One thing needs you."
+              : `${alerts.length} things need you.`}
         </h1>
-        <p className="mt-2 max-w-2xl text-[15px] text-mute">
-          Being built one module at a time. HR turns the scanner file into the file Million needs,
-          and refuses to hand it over until every day adds up. Sales holds the customers, the
-          products, and what each dealer pays for each of them.
-        </p>
+        <p className="mt-1.5 text-[15px] text-mute">{monthLabel(monthKey)}</p>
+      </div>
+
+      {alerts.length > 0 && (
+        <div className="mb-8 space-y-2.5">
+          {alerts.map((a, i) => (
+            <Link key={i} href={a.href} className="block">
+              <div className={`rise rounded-2xl border p-4 transition hover:shadow-sm ${TONE[a.level].card}`}
+                style={{ animationDelay: `${i * 50}ms` }}>
+                <div className="flex items-start gap-3">
+                  <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${TONE[a.level].dot}`} />
+                  <div className="min-w-0 flex-1">
+                    <div className={`text-sm font-bold ${TONE[a.level].label}`}>{a.title}</div>
+                    <p className="mt-0.5 text-[13px] text-ink/70">{a.detail}</p>
+                  </div>
+                  <span className={`shrink-0 text-[13px] font-semibold ${TONE[a.level].label}`}>
+                    {a.action} &rarr;
+                  </span>
+                </div>
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
+
+      <h2 className="mb-3 text-[11px] font-bold uppercase tracking-[0.14em] text-faint">
+        The factory
+      </h2>
+      <div className="mb-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Stat label="Working" value={String(figures.working)}
+          sub={`of ${figures.workers} on the list`} />
+        <Stat label="Not on scanner" value={String(figures.notEnrolled)}
+          sub={figures.notEnrolled === 0 ? "everyone is enrolled" : "cannot be counted yet"}
+          tone={figures.notEnrolled === 0 ? "text-good" : "text-warn"} />
+        <Stat label="Customers" value={String(figures.customers)} sub="still buying" />
+        <Stat label="Products" value={String(figures.products)} sub="still sold" />
       </div>
 
       <h2 className="mb-3 text-[11px] font-bold uppercase tracking-[0.14em] text-faint">
-        What you do each month
+        This month&rsquo;s selling
       </h2>
       <div className="mb-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {ROUTINE.map((s) => (
-          <Card key={s.n} className="rise p-5" >
-            <div className="nums mb-3 flex h-7 w-7 items-center justify-center rounded-full bg-accent-soft text-[13px] font-bold text-accent">
-              {s.n}
-            </div>
-            <div className="text-sm font-bold tracking-tight">{s.title}</div>
-            <p className="mt-1.5 text-[13px] leading-relaxed text-mute">{s.body}</p>
-          </Card>
-        ))}
+        <Stat label="Orders" value={String(figures.ordersThisMonth)} sub={monthLabel(monthKey)} />
+        <Stat label="Order value" value={`RM ${money(figures.orderValueThisMonth)}`}
+          sub="before tax" />
+        <Stat label="Products priced" value={String(figures.pricedProducts)}
+          sub="have a dealer price" />
+        <Stat label="Below cost" value={String(figures.belowCost)}
+          sub={
+            figures.belowCost === 0
+              ? figures.costLooksWrong > 0
+                ? `${figures.costLooksWrong} costs look mis-keyed`
+                : "nothing loses money"
+              : "losing money on every sale"
+          }
+          tone={figures.belowCost === 0 ? "text-good" : "text-bad"} />
       </div>
 
       <h2 className="mb-3 text-[11px] font-bold uppercase tracking-[0.14em] text-faint">
@@ -92,28 +154,6 @@ export default function HomePage() {
             </Card>
           </Link>
         ))}
-      </div>
-
-      <div className="mt-10 rounded-2xl border border-line bg-white p-5">
-        <div className="text-sm font-bold tracking-tight">Two things worth knowing</div>
-        <ul className="mt-3 space-y-2.5 text-[13px] text-mute">
-          <li className="flex gap-2.5">
-            <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
-            <span>
-              <strong className="text-ink">Nothing wrong gets through.</strong> If even one day
-              cannot be read, the download stays locked. That is deliberate &mdash; a wrong file
-              in Million means wrong payslips.
-            </span>
-          </li>
-          <li className="flex gap-2.5">
-            <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
-            <span>
-              <strong className="text-ink">The old spreadsheet is still there</strong>, untouched.
-              Nothing here changes it. Compare the two for a month or two before you trust this
-              one on its own.
-            </span>
-          </li>
-        </ul>
       </div>
     </>
   );

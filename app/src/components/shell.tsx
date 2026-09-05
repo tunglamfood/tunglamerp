@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
+import { Assistant } from "@/components/assistant";
 
 /**
  * The ERP's own map. Kept deliberately short: everything about a worker lives
@@ -14,7 +15,7 @@ export const MODULES = [
     name: "HR",
     ready: true,
     items: [
-      { href: "/home", label: "Start here", icon: "home" as const },
+      { href: "/home", label: "Dashboard", icon: "home" as const },
       { href: "/month", label: "Monthly pay", icon: "calendar" as const },
       { href: "/workers", label: "Workers", icon: "people" as const },
     ],
@@ -158,9 +159,13 @@ export function Shell({ children }: { children: React.ReactNode }) {
         </div>
       )}
 
-      <main className="p-4 md:ml-60 md:p-8 print:ml-0 print:p-0">
+      <main className="p-4 pb-24 md:ml-60 md:p-8 md:pb-24 print:ml-0 print:p-0">
         <div className="mx-auto max-w-6xl">{children}</div>
       </main>
+
+      {/* Reachable from every screen — it is meant to be asked something while
+          you are already looking at something else. */}
+      <Assistant />
     </div>
   );
 }
