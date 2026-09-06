@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Select } from "@/components/ui";
+import { Markdown } from "@/components/markdown";
 
 export interface ModelChoice {
   id: string;
@@ -242,7 +243,7 @@ export function AssistantChat({
               </div>
             ) : (
               <div>
-                <div className="whitespace-pre-wrap text-sm leading-relaxed">{t.content}</div>
+                <Markdown>{t.content}</Markdown>
                 {t.changed && t.changed.length > 0 && (
                   <div className="mt-3 rounded-xl border border-good/25 bg-good-soft px-3.5 py-2.5">
                     <div className="text-[10px] font-bold uppercase tracking-[0.1em] text-good">

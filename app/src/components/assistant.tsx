@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { AssistantChat, Turn } from "@/components/assistant-chat";
 
@@ -9,6 +10,7 @@ import { AssistantChat, Turn } from "@/components/assistant-chat";
  * as the Assistant page, and links there for the ones that came before.
  */
 export function Assistant() {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [turns, setTurns] = useState<Turn[]>([]);
   const [sessionId, setSessionId] = useState<number | null>(null);
@@ -71,6 +73,7 @@ export function Assistant() {
           setTurns={setTurns}
           sessionId={sessionId}
           setSessionId={setSessionId}
+          onSaved={() => router.refresh()}
           compact
         />
       </div>

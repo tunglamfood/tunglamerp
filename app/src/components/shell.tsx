@@ -25,6 +25,7 @@ export const MODULES = [
     items: [
       { href: "/month", label: "Monthly pay", icon: "calendar" as const },
       { href: "/workers", label: "Workers", icon: "people" as const },
+      { href: "/reports/payslips", label: "Payslips", icon: "doc" as const },
     ],
   },
   {

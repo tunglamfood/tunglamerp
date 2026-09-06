@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Card, Chip } from "@/components/ui";
 import { AssistantChat, ModelChoice, Turn } from "@/components/assistant-chat";
 
@@ -64,6 +64,29 @@ export function AssistantPage({
     } catch {
       // The list is a convenience; a failure here must not break the chat.
     }
+  }, []);
+
+  /**
+   * Always read the list fresh on arrival.
+   *
+   * The server hands one down with the page, but Next keeps a copy of that
+   * around between navigations — so a conversation started from the floating
+   * Ask button on another screen was saved and then not shown here, which
+   * looked exactly like it had been lost.
+   */
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/assistant/sessions")
+      .then((r) => r.json())
+      .then((b) => {
+        if (alive && b?.value?.sessions) setSessions(b.value.sessions);
+      })
+      .catch(() => {
+        // Keep whatever the server gave us.
+      });
+    return () => {
+      alive = false;
+    };
   }, []);
 
   async function open(id: number) {
