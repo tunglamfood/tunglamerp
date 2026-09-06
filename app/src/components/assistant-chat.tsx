@@ -33,6 +33,8 @@ export function AssistantChat({
   setTurns,
   sessionId,
   setSessionId,
+  title,
+  onRename,
   onSaved,
   compact,
 }: {
@@ -40,6 +42,9 @@ export function AssistantChat({
   setTurns: (turns: Turn[]) => void;
   sessionId: number | null;
   setSessionId: (id: number | null) => void;
+  /** The conversation's name, shown where the model row used to be. */
+  title?: string;
+  onRename?: (title: string) => void;
   /** Called after a reply lands, so a conversation list can refresh itself. */
   onSaved?: () => void;
   compact?: boolean;
@@ -52,7 +57,9 @@ export function AssistantChat({
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const [unsaved, setUnsaved] = useState(false);
-  const endRef = useRef<HTMLDivElement>(null);
+  const [renaming, setRenaming] = useState(false);
+  const [draftTitle, setDraftTitle] = useState("");
+  const scroller = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (ready !== null) return;
@@ -66,8 +73,13 @@ export function AssistantChat({
       .catch(() => setReady(false));
   }, [ready]);
 
+  // Scroll the message list itself, never the page. scrollIntoView was moving
+  // the whole window, so arriving on this page from anywhere else dumped you at
+  // the bottom of it instead of the top.
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth" });
+    const box = scroller.current;
+    if (!box) return;
+    box.scrollTop = box.scrollHeight;
   }, [turns, busy]);
 
   async function ask(question: string) {
@@ -111,28 +123,68 @@ export function AssistantChat({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      {models.length > 1 && ready !== false && (
-        <div className="flex items-center gap-3 border-b border-line bg-gray-50/70 px-5 py-2.5">
-          <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-faint">Model</span>
-          <Select
-            className="w-[164px]"
-            value={model}
-            onChange={setModel}
-            options={models.map((m) => ({
-              value: m.id,
-              label: m.label,
-              note: m.available === false ? "not on this key" : undefined,
-            }))}
-          />
-          {!compact && (
-            <span className="min-w-0 flex-1 truncate text-xs text-mute">
-              {models.find((m) => m.id === model)?.hint}
-            </span>
+      {ready !== false && (
+        <div className="flex items-center gap-3 border-b border-line bg-gray-50/70 px-5 py-2">
+          {/* The conversation's own name sits here — the model is a setting, not
+              a heading, so it goes to the right and stays out of the way. */}
+          <div className="min-w-0 flex-1">
+            {renaming ? (
+              <input
+                autoFocus
+                value={draftTitle}
+                onChange={(e) => setDraftTitle(e.target.value)}
+                onBlur={() => {
+                  setRenaming(false);
+                  const next = draftTitle.trim();
+                  if (next && next !== title) onRename?.(next);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") e.currentTarget.blur();
+                  if (e.key === "Escape") setRenaming(false);
+                }}
+                className="w-full rounded-lg border border-accent bg-white px-2 py-1 text-sm font-semibold"
+              />
+            ) : (
+              <button
+                type="button"
+                disabled={!title || !onRename}
+                onClick={() => {
+                  setDraftTitle(title ?? "");
+                  setRenaming(true);
+                }}
+                title={title && onRename ? "Click to rename" : undefined}
+                className="group flex max-w-full items-center gap-1.5 rounded-lg px-1 py-1 text-left disabled:cursor-default"
+              >
+                <span className="truncate text-sm font-semibold">
+                  {title || "New conversation"}
+                </span>
+                {title && onRename && (
+                  <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7"
+                    strokeLinecap="round" strokeLinejoin="round"
+                    className="h-3.5 w-3.5 shrink-0 text-faint opacity-0 transition group-hover:opacity-100">
+                    <path d="M13 4.5 15.5 7 7 15.5H4.5V13L13 4.5Z" />
+                  </svg>
+                )}
+              </button>
+            )}
+          </div>
+
+          {models.length > 1 && (
+            <Select
+              className="w-[128px] shrink-0"
+              value={model}
+              onChange={setModel}
+              options={models.map((m) => ({
+                value: m.id,
+                label: m.label,
+                note: m.available === false ? "not on this key" : undefined,
+              }))}
+            />
           )}
         </div>
       )}
 
-      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-5">
+      <div ref={scroller} className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-5">
         {ready === false && (
           <div className="rounded-xl border border-warn-line bg-warn-soft px-4 py-3 text-sm text-warn">
             <div className="font-bold">Not switched on yet</div>
@@ -152,7 +204,7 @@ export function AssistantChat({
               dealer&rsquo;s prices. Or tell it to record something.
             </p>
             <div className="mt-4 space-y-2">
-              {OPENERS.map((q) => (
+              {(compact ? OPENERS.slice(0, 2) : OPENERS).map((q) => (
                 <button key={q} onClick={() => void ask(q)}
                   className="block w-full rounded-xl border border-line px-3.5 py-2.5 text-left text-sm transition hover:border-accent-line hover:bg-accent-soft/50">
                   {q}
@@ -208,7 +260,6 @@ export function AssistantChat({
           </div>
         )}
 
-        <div ref={endRef} />
       </div>
 
       <div className="border-t border-line p-4">

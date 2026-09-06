@@ -104,7 +104,7 @@ export function CustomersScreen({ customers }: { customers: Customer[] }) {
           </Field>
           <Field label="State" hint="Prices are often set state by state.">
             <Combobox value={c.state} options={states} addLabel="Add a state…"
-              placeholder="Penang" onChange={(v) => set({ ...c, state: v })} />
+              placeholder="Penang" onChange={(v) => set({ ...c, state: tidyState(v) })} />
           </Field>
           <Field label="Address">
             <textarea className={`${inputCls} h-24`} value={c.address ?? ""}

@@ -215,3 +215,33 @@ alter table sales_products    enable row level security;
 alter table sales_prices      enable row level security;
 alter table sales_orders      enable row level security;
 alter table sales_order_lines enable row level security;
+
+-- ── The assistant's conversations ───────────────────────────────────────────
+-- Kept for two reasons: the office should be able to look back at what was
+-- asked and what the answer was, and every change the assistant made on
+-- somebody's behalf should be traceable to the conversation that asked for it.
+create table if not exists assistant_sessions (
+  id         bigserial primary key,
+  title      text not null default 'New conversation',
+  model      text not null default '',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists assistant_sessions_recent_idx
+  on assistant_sessions (updated_at desc);
+
+create table if not exists assistant_messages (
+  id         bigserial primary key,
+  session_id bigint not null references assistant_sessions(id) on delete cascade,
+  role       text not null check (role in ('user', 'assistant')),
+  content    text not null,
+  changed    text[] not null default '{}',
+  model      text not null default '',
+  tools_used text[] not null default '{}',
+  created_at timestamptz not null default now()
+);
+create index if not exists assistant_messages_session_idx
+  on assistant_messages (session_id, created_at);
+
+alter table assistant_sessions enable row level security;
+alter table assistant_messages enable row level security;

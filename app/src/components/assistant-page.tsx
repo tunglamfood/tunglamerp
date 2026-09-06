@@ -36,6 +36,20 @@ export function AssistantPage({
   const [turns, setTurns] = useState<Turn[]>([]);
   const [loading, setLoading] = useState(false);
 
+  const current = sessions.find((s) => s.id === sessionId);
+
+  async function rename(title: string) {
+    if (!sessionId) return;
+    // Shown straight away; the list is put right from the server afterwards.
+    setSessions((all) => all.map((s) => (s.id === sessionId ? { ...s, title } : s)));
+    await fetch("/api/assistant/sessions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: sessionId, title }),
+    });
+    void refreshList();
+  }
+
   const refreshList = useCallback(async () => {
     try {
       const res = await fetch("/api/assistant/sessions");
@@ -165,6 +179,8 @@ export function AssistantPage({
               setTurns={setTurns}
               sessionId={sessionId}
               setSessionId={setSessionId}
+              title={current?.title}
+              onRename={sessionId ? rename : undefined}
               onSaved={refreshList}
             />
           )}

@@ -131,6 +131,14 @@ export async function addMessages(
   fail("Could not update the conversation", touch);
 }
 
+export async function renameSession(id: number, title: string): Promise<void> {
+  const { error } = await serverSupabase()
+    .from("assistant_sessions")
+    .update({ title })
+    .eq("id", id);
+  fail("Could not rename that conversation", error);
+}
+
 export async function deleteSession(id: number): Promise<void> {
   const { error } = await serverSupabase().from("assistant_sessions").delete().eq("id", id);
   fail("Could not remove that conversation", error);
