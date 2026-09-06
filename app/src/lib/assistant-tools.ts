@@ -15,6 +15,7 @@ import {
   upsertCustomer, upsertProduct,
 } from "./store-sales";
 import { loadMonthView, monthExtras } from "./month-loader";
+import { listHolidays, saveHoliday } from "./store-holidays";
 import { currentListFor } from "./pricing";
 import { expiryLevel, expiryWords } from "./expiry";
 
@@ -201,6 +202,19 @@ export const TOOLS: AssistantTool[] = [
     description: "Sales orders, newest first, with their value.",
     parameters: { type: "object", properties: {} },
   },
+  {
+    name: "list_holidays",
+    description:
+      "The company's public holidays, with the day of the week each falls on. Use for any " +
+      "question about which days are holidays, how many there are in a month or a year, or " +
+      "what a holiday is called.",
+    parameters: {
+      type: "object",
+      properties: {
+        year: { type: "string", description: "Only this year, as 2026. Leave out for all." },
+      },
+    },
+  },
 
   /* ── the writing tools ─────────────────────────────────────────────────── */
 
@@ -317,6 +331,28 @@ export const TOOLS: AssistantTool[] = [
     },
   },
   {
+    name: "add_holiday",
+    description:
+      "Record one public holiday. Use it when the office reads out or pastes next year's " +
+      "list — call it once for each day. Saving a date that already exists replaces it.",
+    parameters: {
+      type: "object",
+      properties: {
+        date: { type: "string", description: "The day, as 2027-01-01." },
+        name: { type: "string", description: "What it is called, e.g. Deepavali." },
+        compulsory: {
+          type: "boolean",
+          description: "True if the company's own sheet marks it with ** as compulsory.",
+        },
+        note: {
+          type: "string",
+          description: "For instance, which Saturday this day replaces.",
+        },
+      },
+      required: ["date", "name"],
+    },
+  },
+  {
     name: "create_customer",
     description: "Add one customer.",
     parameters: {
@@ -353,7 +389,8 @@ export const TOOLS: AssistantTool[] = [
 
 export const WRITING_TOOLS = new Set([
   "create_worker", "set_worker_status", "add_pay_item", "record_leave",
-  "add_document", "add_note", "set_dealer_price", "create_customer", "create_product",
+  "add_document", "add_note", "add_holiday", "set_dealer_price",
+  "create_customer", "create_product",
 ]);
 
 export async function runTool(name: string, input: Record<string, unknown>): Promise<ToolOutcome> {
@@ -519,6 +556,30 @@ export async function runTool(name: string, input: Record<string, unknown>): Pro
       };
     }
 
+    case "list_holidays": {
+      const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+      const all = await listHolidays(s(input.year) || undefined);
+      const rows = all.map((h) => ({
+        ...h,
+        day: DAYS[new Date(`${h.onDate}T00:00:00`).getDay()],
+      }));
+      const byYear: Record<string, number> = {};
+      for (const h of rows) {
+        const y = h.onDate.slice(0, 4);
+        byYear[y] = (byYear[y] ?? 0) + 1;
+      }
+      return {
+        result: {
+          totals: {
+            matching: rows.length,
+            compulsory: rows.filter((h) => h.compulsory).length,
+            byYear,
+          },
+          ...cap(rows),
+        },
+      };
+    }
+
     case "list_orders": {
       const orders = await listOrders();
       return {
@@ -670,6 +731,38 @@ export async function runTool(name: string, input: Record<string, unknown>): Pro
           belowCost: price < item.cost,
         },
         changed: `${itemCode} priced at RM${price.toFixed(2)} for ${customerCode}, from ${from}`,
+      };
+    }
+
+    case "add_holiday": {
+      const date = s(input.date);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        return { result: { refused: `"${date}" is not a date. Give it as 2027-01-01.` } };
+      }
+      const name = s(input.name);
+      if (!name) return { result: { refused: "A holiday needs a name." } };
+
+      const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+      const day = DAYS[new Date(`${date}T00:00:00`).getDay()];
+      await saveHoliday({
+        onDate: date,
+        name,
+        compulsory: input.compulsory === true,
+        note: s(input.note) || null,
+      });
+      return {
+        result: {
+          saved: true,
+          day,
+          // Saturday is already a rest day, so a holiday landing on one earns
+          // nobody an extra day — worth saying rather than silently accepting.
+          warning:
+            day === "Saturday"
+              ? "That is a Saturday, which is already a rest day. If the company observes " +
+                "another day instead, record that day too."
+              : undefined,
+        },
+        changed: `${name} recorded as a holiday on ${date} (${day})`,
       };
     }
 
