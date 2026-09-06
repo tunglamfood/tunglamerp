@@ -107,6 +107,53 @@ export async function saveCorrection(
   fail("Could not save that correction", error);
 }
 
+/**
+ * A whole month keyed in by hand for one worker, saved in one go.
+ *
+ * Times typed by the office are stored exactly where a correction to a scan is
+ * stored, so a hand-keyed month and a scanned-then-corrected month are the same
+ * thing to everything downstream — the payroll, the flags, the export.
+ */
+export async function saveCorrections(
+  monthKey: string,
+  code: string,
+  days: { date: string; first: string | null; last: string | null; absent: boolean }[],
+): Promise<void> {
+  const db = serverSupabase();
+  const now = new Date().toISOString();
+
+  // A day cleared back to nothing should leave no correction behind, or it
+  // would keep overriding a scan that arrives later.
+  const empty = days.filter((d) => !d.first && !d.last && !d.absent).map((d) => d.date);
+  if (empty.length > 0) {
+    const { error } = await db
+      .from("hr_month_corrections")
+      .delete()
+      .eq("month_key", monthKey)
+      .eq("code", code)
+      .in("work_date", empty);
+    fail("Could not clear those days", error);
+  }
+
+  const rows = days
+    .filter((d) => d.first || d.last || d.absent)
+    .map((d) => ({
+      month_key: monthKey,
+      code,
+      work_date: d.date,
+      first_override: d.first,
+      last_override: d.last,
+      marked_absent: d.absent,
+      updated_at: now,
+    }));
+  if (rows.length === 0) return;
+
+  const { error } = await db
+    .from("hr_month_corrections")
+    .upsert(rows, { onConflict: "month_key,code,work_date" });
+  fail("Could not save those times", error);
+}
+
 /** Scans and corrections for a month, already merged per worker. */
 export async function loadMonth(monthKey: string): Promise<Map<string, DayInput[]>> {
   const db = serverSupabase();

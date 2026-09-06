@@ -44,10 +44,14 @@ export function flagsForWorker(
 ): Flag[] {
   const out: Flag[] = [];
 
-  // Somebody who never scanned at all this month gets one line saying so, not
-  // one line per working day. Their whole month is a single question — has
-  // this person left? — and 25 identical rows only bury the real problems.
-  const everScanned = days.some((d) => (byDate.get(d.date)?.punches.length ?? 0) > 0);
+  // Somebody with nothing at all this month gets one line saying so, not one
+  // line per working day. Their whole month is a single question — has this
+  // person left? — and 25 identical rows only bury the real problems. A day
+  // counts whether it was scanned or typed in by hand.
+  const everWorked = days.some((d) => {
+    const input = byDate.get(d.date);
+    return (input?.punches.length ?? 0) > 0 || !!input?.firstOverride || !!input?.lastOverride;
+  });
 
   for (const day of days) {
     const input = byDate.get(day.date);
@@ -90,7 +94,7 @@ export function flagsForWorker(
     if (day.kind !== "NORMAL") continue;
 
     const punches = input?.punches ?? [];
-    if (punches.length === 0 && !everScanned) continue; // covered by NEVER_SCANNED
+    if (punches.length === 0 && !everWorked) continue; // covered by NEVER_SCANNED
     if (punches.length === 1) {
       const suggestion = suggestFor(punches[0], defaultStart, defaultFinish);
       const missing = suggestion.first === punches[0] ? "finish" : "start";
@@ -116,7 +120,7 @@ export function flagsForWorker(
           punches,
           suggestFirst: null,
           suggestLast: null,
-          message: `${worker.name} has no scan on this working day. Mark them absent, or key the times in.`,
+          message: `${worker.name} has nothing recorded for this working day. Key the times in, or mark them absent.`,
         }),
       );
     }

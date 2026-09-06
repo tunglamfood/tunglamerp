@@ -1,6 +1,7 @@
 // Everything about paying a month: the scanner file and the check list, and
 // the allowances and advances that go out with it.
 import { listPayItems } from "@/lib/store-hr";
+import { listHolidays } from "@/lib/store-holidays";
 import { listWorkers } from "@/lib/store";
 import { isMonthKey, loadMonthView, monthExtras } from "@/lib/month-loader";
 import { MonthHub } from "@/components/month-hub";
@@ -31,16 +32,19 @@ export default async function MonthPage() {
   let view: MonthView | null = null;
   let items: PayItem[] = [];
   let workers: Worker[] = [];
+  let holidays: Record<string, string> = {};
   let problem: string | null = null;
 
   if (isMonthKey(month)) {
     try {
-      const [built, extras, payItems, people] = await Promise.all([
+      const [built, extras, payItems, people, days] = await Promise.all([
         loadMonthView(month),
         monthExtras(month),
         listPayItems(),
         listWorkers(),
+        listHolidays(month.slice(0, 4)),
       ]);
+      holidays = Object.fromEntries(days.map((h) => [h.onDate, h.name]));
       const full = { ...built, extras: Object.fromEntries(extras) } as MonthView;
       view = hasAnything(full) ? full : null;
       items = payItems;
@@ -65,6 +69,7 @@ export default async function MonthPage() {
       items={items}
       workers={workers}
       months={recentMonths(month)}
+      holidays={holidays}
     />
   );
 }

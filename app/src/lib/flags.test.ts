@@ -70,6 +70,16 @@ describe("flagsForWorker", () => {
     expect(flags.find((x) => x.date === "2026-06-02")!.kind).toBe("NO_SCAN");
   });
 
+  it("counts a day typed in by hand as worked, the same as a scanned one", () => {
+    // The scanner is not running properly yet, so months are keyed by hand.
+    // A gap beside keyed days is still a gap worth showing.
+    const flags = run([
+      { date: "2026-06-03", punches: [], firstOverride: "07:00", lastOverride: "19:00" },
+    ]);
+    expect(flags.find((x) => x.date === "2026-06-03")).toBeUndefined();
+    expect(flags.find((x) => x.date === "2026-06-02")!.kind).toBe("NO_SCAN");
+  });
+
   it("does not list every day for somebody who never scanned all month", () => {
     // 25 identical rows would bury the real problems. The whole month is one
     // question, answered by the NEVER_SCANNED flag instead.
