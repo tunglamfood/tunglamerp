@@ -21,9 +21,11 @@ run out soon", "is anything sold below cost to 433" — and can add records for
 you. It cannot delete anything, cannot change many records at once, and cannot
 run the payroll export. Anything it saves is listed under its answer.
 
-It needs a key from console.anthropic.com. Paste it after
-`ANTHROPIC_API_KEY=` in `app/.env.local` and restart. Everything else works
-without it.
+It uses the `OPENAI_API_KEY` already in `app/.env.local`. Two models to pick
+from in the panel: **5.4 mini** by default, which is quicker and cheaper and
+enough for most questions, and **5.2** for something that needs more thought.
+No temperature or other sampling setting is applied — the model's own defaults
+are left alone.
 
 ## The database
 

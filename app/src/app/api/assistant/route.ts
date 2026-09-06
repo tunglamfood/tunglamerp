@@ -1,11 +1,15 @@
 // The admin assistant.
 //
-// A manual tool loop rather than the SDK's tool runner, because the office
-// needs to see afterwards exactly what was changed on their behalf — every
-// writing tool reports a line, and those lines come back with the answer.
-import Anthropic from "@anthropic-ai/sdk";
+// A hand-written tool loop rather than a framework, because the office needs to
+// see afterwards exactly what was changed on their behalf — every writing tool
+// reports a line, and those lines come back with the answer.
+//
+// No temperature, top_p or any other sampling setting is sent. The model's own
+// defaults are left alone on purpose.
+import OpenAI from "openai";
 import { requireSession } from "@/lib/supabase-server";
 import { TOOLS, runTool } from "@/lib/assistant-tools";
+import { DEFAULT_MODEL, MODELS, isKnownModel } from "@/lib/assistant-models";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -34,6 +38,9 @@ How to answer:
   comparing several things.
 - When something looks wrong — a price below cost, a permit about to expire, a
   worker with no scanner number — say so plainly, even if it was not asked.
+- Some costs in this system were brought in per carton while prices are per
+  packet. If a cost is many times the price, say the cost looks mis-keyed rather
+  than calling it a loss.
 
 Before you change anything:
 - Only write when the person has clearly asked you to. A question is not an
@@ -53,108 +60,136 @@ interface Turn {
   content: string;
 }
 
+const asFunctions = () =>
+  TOOLS.map((t) => ({
+    type: "function" as const,
+    function: { name: t.name, description: t.description, parameters: t.parameters },
+  }));
+
+/** Turns an SDK failure into something the office can act on. */
+function explain(e: unknown): { message: string; status: number } {
+  if (e instanceof OpenAI.AuthenticationError) {
+    return {
+      message: "The OpenAI key in app/.env.local is not being accepted.",
+      status: 502,
+    };
+  }
+  if (e instanceof OpenAI.RateLimitError) {
+    return { message: "Too many questions at once. Wait a moment and ask again.", status: 429 };
+  }
+  if (e instanceof OpenAI.NotFoundError) {
+    return {
+      message:
+        "That model is not available on this OpenAI account. Pick the other one, or check " +
+        "which models the key allows.",
+      status: 400,
+    };
+  }
+  if (e instanceof OpenAI.APIError) {
+    return { message: `The assistant could not answer: ${e.message}`, status: 502 };
+  }
+  return { message: `The assistant could not answer: ${(e as Error).message}`, status: 502 };
+}
+
 export async function POST(request: Request) {
   if (!(await requireSession())) {
     return Response.json({ error: "Please sign in again." }, { status: 401 });
   }
 
-  const key = process.env.ANTHROPIC_API_KEY;
+  const key = process.env.OPENAI_API_KEY;
   if (!key) {
     return Response.json(
       {
         error:
-          "The assistant is not switched on yet. It needs an Anthropic API key: " +
-          "get one at console.anthropic.com, then add a line ANTHROPIC_API_KEY=… " +
-          "to app/.env.local and restart.",
+          "The assistant is not switched on yet. It needs an OpenAI key: add a line " +
+          "OPENAI_API_KEY=… to app/.env.local and restart.",
       },
       { status: 503 },
     );
   }
 
-  let body: { messages?: Turn[] };
+  let body: { messages?: Turn[]; model?: string };
   try {
-    body = (await request.json()) as { messages?: Turn[] };
+    body = (await request.json()) as { messages?: Turn[]; model?: string };
   } catch {
     return Response.json({ error: "Could not read what was sent." }, { status: 400 });
   }
 
+  const model = body.model && isKnownModel(body.model) ? body.model : DEFAULT_MODEL;
   const history = (body.messages ?? []).slice(-20);
   if (history.length === 0) {
     return Response.json({ error: "Ask a question first." }, { status: 400 });
   }
 
-  const client = new Anthropic({ apiKey: key });
-  const messages: Anthropic.MessageParam[] = history.map((m) => ({
-    role: m.role,
-    content: m.content,
-  }));
+  const client = new OpenAI({ apiKey: key });
+  const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
+    { role: "system", content: SYSTEM },
+    ...history.map((m) => ({ role: m.role, content: m.content }) as OpenAI.Chat.ChatCompletionMessageParam),
+  ];
 
   const changed: string[] = [];
   const used: string[] = [];
 
   try {
     for (let turn = 0; turn < MAX_TURNS; turn++) {
-      const response = await client.messages.create({
-        model: "claude-opus-5",
-        max_tokens: 16000,
-        thinking: { type: "adaptive" },
-        system: SYSTEM,
-        tools: TOOLS,
+      const response = await client.chat.completions.create({
+        model,
         messages,
+        tools: asFunctions(),
       });
 
-      if (response.stop_reason === "refusal") {
-        return Response.json({
-          reply:
-            "I am not able to answer that one. If it was about the factory's own data, " +
-            "try asking it a different way.",
-          changed,
-          used,
-        });
+      const choice = response.choices[0];
+      const message = choice?.message;
+      if (!message) {
+        return Response.json({ reply: "I could not find anything to say about that.", changed, used });
       }
 
-      const calls = response.content.filter(
-        (b): b is Anthropic.ToolUseBlock => b.type === "tool_use",
-      );
-
+      const calls = message.tool_calls ?? [];
       if (calls.length === 0) {
-        const reply = response.content
-          .filter((b): b is Anthropic.TextBlock => b.type === "text")
-          .map((b) => b.text)
-          .join("\n")
-          .trim();
         return Response.json({
-          reply: reply || "I could not find anything to say about that.",
+          reply: (message.content ?? "").trim() || "I could not find anything to say about that.",
           changed,
           used,
+          model,
         });
       }
 
-      // Every tool_result for one assistant turn goes back in one user message.
-      messages.push({ role: "assistant", content: response.content });
-      const results: Anthropic.ToolResultBlockParam[] = [];
+      messages.push(message);
 
       for (const call of calls) {
-        used.push(call.name);
+        if (call.type !== "function") continue;
+        used.push(call.function.name);
+
+        let input: Record<string, unknown> = {};
         try {
-          const outcome = await runTool(call.name, call.input as Record<string, unknown>);
+          // Never string-match the arguments — they are JSON and can be escaped
+          // in ways that look surprising.
+          input = call.function.arguments ? JSON.parse(call.function.arguments) : {};
+        } catch {
+          messages.push({
+            role: "tool",
+            tool_call_id: call.id,
+            content: "Those arguments were not readable. Send them again as plain JSON.",
+          });
+          continue;
+        }
+
+        try {
+          const outcome = await runTool(call.function.name, input);
           if (outcome.changed) changed.push(outcome.changed);
-          results.push({
-            type: "tool_result",
-            tool_use_id: call.id,
+          messages.push({
+            role: "tool",
+            tool_call_id: call.id,
             content: JSON.stringify(outcome.result),
           });
         } catch (e) {
-          results.push({
-            type: "tool_result",
-            tool_use_id: call.id,
+          messages.push({
+            role: "tool",
+            tool_call_id: call.id,
             content: `That did not work: ${(e as Error).message}`,
-            is_error: true,
           });
         }
       }
-
-      messages.push({ role: "user", content: results });
     }
 
     return Response.json({
@@ -163,32 +198,44 @@ export async function POST(request: Request) {
         "smaller piece of it.",
       changed,
       used,
+      model,
     });
   } catch (e) {
-    if (e instanceof Anthropic.AuthenticationError) {
-      return Response.json(
-        { error: "The Anthropic API key in app/.env.local is not being accepted." },
-        { status: 502 },
-      );
-    }
-    if (e instanceof Anthropic.RateLimitError) {
-      return Response.json(
-        { error: "Too many questions at once. Wait a moment and ask again." },
-        { status: 429 },
-      );
-    }
-    return Response.json(
-      { error: `The assistant could not answer: ${(e as Error).message}`, changed },
-      { status: 502 },
-    );
+    const { message, status } = explain(e);
+    return Response.json({ error: message, changed }, { status });
   }
 }
 
-/** Lets the screen show the assistant as available or not before anyone types. */
+/**
+ * What the screen needs before anyone types: whether the assistant is switched
+ * on, and which models it may be pointed at. Where the key allows it, the list
+ * is checked against the account so the picker cannot offer something that will
+ * fail — but a failure to check is not a reason to hide the picker.
+ */
 export async function GET() {
   if (!(await requireSession())) {
     return Response.json({ error: "Please sign in again." }, { status: 401 });
   }
-  return Response.json({ ready: !!process.env.ANTHROPIC_API_KEY });
-}
 
+  const key = process.env.OPENAI_API_KEY;
+  if (!key) {
+    return Response.json({ ready: false, models: MODELS, default: DEFAULT_MODEL });
+  }
+
+  let available: string[] | null = null;
+  try {
+    const list = await new OpenAI({ apiKey: key }).models.list();
+    available = list.data.map((m) => m.id);
+  } catch {
+    available = null; // Could not ask; offer everything rather than nothing.
+  }
+
+  return Response.json({
+    ready: true,
+    default: DEFAULT_MODEL,
+    models: MODELS.map((m) => ({
+      ...m,
+      available: available == null ? null : available.includes(m.id),
+    })),
+  });
+}

@@ -1,6 +1,15 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Select } from "@/components/ui";
+
+interface ModelChoice {
+  id: string;
+  label: string;
+  hint: string;
+  /** null when the account could not be checked. */
+  available?: boolean | null;
+}
 
 interface Turn {
   role: "user" | "assistant";
@@ -24,6 +33,8 @@ export function Assistant() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [ready, setReady] = useState<boolean | null>(null);
+  const [models, setModels] = useState<ModelChoice[]>([]);
+  const [model, setModel] = useState("");
   const [turns, setTurns] = useState<Turn[]>([]);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
@@ -35,7 +46,11 @@ export function Assistant() {
     if (!open || ready !== null) return;
     void fetch("/api/assistant")
       .then((r) => r.json())
-      .then((b) => setReady(!!b.ready))
+      .then((b) => {
+        setReady(!!b.ready);
+        setModels(b.models ?? []);
+        setModel((m) => m || b.default || (b.models?.[0]?.id ?? ""));
+      })
       .catch(() => setReady(false));
   }, [open, ready]);
 
@@ -58,6 +73,7 @@ export function Assistant() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          model,
           messages: next.map((t) => ({ role: t.role, content: t.content })),
         }),
       });
@@ -128,13 +144,34 @@ export function Assistant() {
           </button>
         </div>
 
+        {models.length > 1 && ready !== false && (
+          <div className="flex items-center gap-3 border-b border-line bg-gray-50/70 px-6 py-2.5">
+            <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-faint">
+              Model
+            </span>
+            <Select
+              className="w-[168px]"
+              value={model}
+              onChange={setModel}
+              options={models.map((m) => ({
+                value: m.id,
+                label: m.label,
+                note: m.available === false ? "not on this key" : undefined,
+              }))}
+            />
+            <span className="min-w-0 flex-1 truncate text-xs text-mute">
+              {models.find((m) => m.id === model)?.hint}
+            </span>
+          </div>
+        )}
+
         <div className="flex-1 space-y-4 overflow-y-auto px-6 py-5">
           {ready === false && (
             <div className="rounded-xl border border-warn-line bg-warn-soft px-4 py-3 text-sm text-warn">
               <div className="font-bold">Not switched on yet</div>
               <p className="mt-1">
-                The assistant needs an Anthropic API key. Get one at console.anthropic.com,
-                then add a line <code className="font-mono">ANTHROPIC_API_KEY=…</code> to{" "}
+                The assistant needs an OpenAI key. Add a line{" "}
+                <code className="font-mono">OPENAI_API_KEY=…</code> to{" "}
                 <code className="font-mono">app/.env.local</code> and restart. Everything else
                 in the system works without it.
               </p>

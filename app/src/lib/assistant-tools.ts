@@ -5,7 +5,6 @@
 // tool here that deletes, and none that changes many rows at once, so the worst
 // a misunderstanding can do is add one row somebody can see and remove.
 import "server-only";
-import Anthropic from "@anthropic-ai/sdk";
 import { listStatuses, listWorkers, upsertWorker } from "./store";
 import {
   listAssignments, listDocuments, listLeave, listNotes, listPayItems,
@@ -19,6 +18,20 @@ import { loadMonthView, monthExtras } from "./month-loader";
 import { currentListFor } from "./pricing";
 import { expiryLevel, expiryWords } from "./expiry";
 
+/**
+ * A tool, described without reference to any one provider's SDK. The route
+ * turns these into whatever shape the model it is calling expects.
+ */
+export interface AssistantTool {
+  name: string;
+  description: string;
+  parameters: {
+    type: "object";
+    properties: Record<string, { type: string; description?: string }>;
+    required?: string[];
+  };
+}
+
 export interface ToolOutcome {
   /** What the model gets back. */
   result: unknown;
@@ -28,9 +41,44 @@ export interface ToolOutcome {
 
 const today = () => new Date().toISOString().slice(0, 10);
 
-/** Keeps a reply small enough to be useful: the model does not need 346 rows. */
-function cap<T>(rows: T[], limit = 60): { rows: T[]; shown: number; total: number } {
-  return { rows: rows.slice(0, limit), shown: Math.min(rows.length, limit), total: rows.length };
+/**
+ * Keeps a reply small enough to be useful — the model does not need 346 rows.
+ *
+ * A truncated list is dangerous for counting: handed 60 of 85 workers, a model
+ * will happily count the 60 and report the answer with confidence. So a cut
+ * list says so in the payload, in words, and every tool that could be counted
+ * from carries its own totals worked out over the whole set.
+ */
+function cap<T>(
+  rows: T[],
+  limit = 200,
+): { rows: T[]; shown: number; total: number; warning?: string } {
+  const shown = Math.min(rows.length, limit);
+  return {
+    rows: rows.slice(0, limit),
+    shown,
+    total: rows.length,
+    ...(rows.length > limit
+      ? {
+          warning:
+            `Only ${shown} of ${rows.length} rows are here. Do not count from them — ` +
+            "use the totals in this result, or narrow the search and ask again.",
+        }
+      : {}),
+  };
+}
+
+/** How many rows fall into each value of a field — counted over everything. */
+function countBy<T>(
+  rows: T[],
+  pick: (row: T) => string | null | undefined,
+): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const row of rows) {
+    const key = pick(row);
+    if (key) out[key] = (out[key] ?? 0) + 1;
+  }
+  return out;
 }
 
 const s = (v: unknown, fallback = "") => (v == null ? fallback : String(v).trim());
@@ -39,13 +87,13 @@ const n = (v: unknown, fallback = 0) => {
   return Number.isFinite(x) ? x : fallback;
 };
 
-export const TOOLS: Anthropic.Tool[] = [
+export const TOOLS: AssistantTool[] = [
   {
     name: "list_workers",
     description:
       "The people on the payroll. Use for questions about headcount, who works where, " +
       "who is on which site or group, and who is not yet enrolled on the scanner.",
-    input_schema: {
+    parameters: {
       type: "object",
       properties: {
         site: { type: "string", description: "Only this site, e.g. KB or KL." },
@@ -61,7 +109,7 @@ export const TOOLS: Anthropic.Tool[] = [
       "The worked-out payroll for one month: basic days, overtime, rest day and public " +
       "holiday hours per worker, plus anything still to check before it can be exported. " +
       "Use for any question about a month's pay or overtime.",
-    input_schema: {
+    parameters: {
       type: "object",
       properties: {
         month: { type: "string", description: "The month, as 2026-09." },
@@ -72,7 +120,7 @@ export const TOOLS: Anthropic.Tool[] = [
   {
     name: "list_pay_items",
     description: "Allowances, advances and deductions recorded for a month.",
-    input_schema: {
+    parameters: {
       type: "object",
       properties: { month: { type: "string", description: "The month, as 2026-09." } },
     },
@@ -80,7 +128,7 @@ export const TOOLS: Anthropic.Tool[] = [
   {
     name: "list_leave",
     description: "Leave records. Give a worker code to narrow it to one person.",
-    input_schema: {
+    parameters: {
       type: "object",
       properties: { code: { type: "string", description: "A worker's Million code." } },
     },
@@ -90,7 +138,7 @@ export const TOOLS: Anthropic.Tool[] = [
     description:
       "Passports, work permits, FOMEMA and insurance, with how long each has left. " +
       "Use for anything about permits expiring.",
-    input_schema: {
+    parameters: {
       type: "object",
       properties: {
         expiring_only: {
@@ -103,7 +151,7 @@ export const TOOLS: Anthropic.Tool[] = [
   {
     name: "list_notes",
     description: "Warnings and notes kept against workers.",
-    input_schema: {
+    parameters: {
       type: "object",
       properties: { code: { type: "string", description: "A worker's Million code." } },
     },
@@ -111,12 +159,12 @@ export const TOOLS: Anthropic.Tool[] = [
   {
     name: "list_assignments",
     description: "Who sleeps in which hostel room and rides which van.",
-    input_schema: { type: "object", properties: {} },
+    parameters: { type: "object", properties: {} },
   },
   {
     name: "list_customers",
     description: "The customers we sell to. Use for anything about dealers or states.",
-    input_schema: {
+    parameters: {
       type: "object",
       properties: {
         state: { type: "string" },
@@ -127,7 +175,7 @@ export const TOOLS: Anthropic.Tool[] = [
   {
     name: "list_products",
     description: "The products we sell, with their cost and list price.",
-    input_schema: {
+    parameters: {
       type: "object",
       properties: {
         group: { type: "string" },
@@ -140,7 +188,7 @@ export const TOOLS: Anthropic.Tool[] = [
     description:
       "What a dealer currently pays for each product, with the margin over cost. " +
       "Use for questions about pricing, margin, or whether anything is sold below cost.",
-    input_schema: {
+    parameters: {
       type: "object",
       properties: {
         customer_code: { type: "string", description: "The debtor code, e.g. 3030/0003." },
@@ -151,7 +199,7 @@ export const TOOLS: Anthropic.Tool[] = [
   {
     name: "list_orders",
     description: "Sales orders, newest first, with their value.",
-    input_schema: { type: "object", properties: {} },
+    parameters: { type: "object", properties: {} },
   },
 
   /* ── the writing tools ─────────────────────────────────────────────────── */
@@ -161,7 +209,7 @@ export const TOOLS: Anthropic.Tool[] = [
     description:
       "Add one person to the payroll. Only after the code, name, site and group are all " +
       "known — ask for anything missing rather than guessing it.",
-    input_schema: {
+    parameters: {
       type: "object",
       properties: {
         code: { type: "string", description: "The Million code, e.g. B76." },
@@ -179,7 +227,7 @@ export const TOOLS: Anthropic.Tool[] = [
     description:
       "Change one worker's status — for instance marking somebody as left. Only statuses " +
       "that already exist may be used.",
-    input_schema: {
+    parameters: {
       type: "object",
       properties: {
         code: { type: "string" },
@@ -192,7 +240,7 @@ export const TOOLS: Anthropic.Tool[] = [
     name: "add_pay_item",
     description:
       "Record one allowance, advance or deduction against a worker for a month.",
-    input_schema: {
+    parameters: {
       type: "object",
       properties: {
         month: { type: "string", description: "The month, as 2026-09." },
@@ -208,7 +256,7 @@ export const TOOLS: Anthropic.Tool[] = [
   {
     name: "record_leave",
     description: "Record leave for one worker.",
-    input_schema: {
+    parameters: {
       type: "object",
       properties: {
         code: { type: "string" },
@@ -224,7 +272,7 @@ export const TOOLS: Anthropic.Tool[] = [
   {
     name: "add_document",
     description: "Record a passport, work permit, FOMEMA or insurance, and when it expires.",
-    input_schema: {
+    parameters: {
       type: "object",
       properties: {
         code: { type: "string" },
@@ -239,7 +287,7 @@ export const TOOLS: Anthropic.Tool[] = [
   {
     name: "add_note",
     description: "Record a warning or a note against a worker.",
-    input_schema: {
+    parameters: {
       type: "object",
       properties: {
         code: { type: "string" },
@@ -256,7 +304,7 @@ export const TOOLS: Anthropic.Tool[] = [
     description:
       "Set what one dealer pays for one product, from a date. This never overwrites an " +
       "old price — orders already written keep the price they were sold at.",
-    input_schema: {
+    parameters: {
       type: "object",
       properties: {
         customer_code: { type: "string" },
@@ -271,7 +319,7 @@ export const TOOLS: Anthropic.Tool[] = [
   {
     name: "create_customer",
     description: "Add one customer.",
-    input_schema: {
+    parameters: {
       type: "object",
       properties: {
         code: { type: "string", description: "The Million debtor code, e.g. 3030/0400." },
@@ -287,7 +335,7 @@ export const TOOLS: Anthropic.Tool[] = [
   {
     name: "create_product",
     description: "Add one product to the SKU list.",
-    input_schema: {
+    parameters: {
       type: "object",
       properties: {
         item_code: { type: "string" },
@@ -321,7 +369,26 @@ export async function runTool(name: string, input: Record<string, unknown>): Pro
           (!input.status || w.status === s(input.status)) &&
           (!q || `${w.code} ${w.name} ${w.scannerId}`.toLowerCase().includes(q)),
       );
-      return { result: cap(rows) };
+      const statuses = await listStatuses();
+      const working = new Set(statuses.filter((x) => x.countsAsWorking).map((x) => x.name));
+      const active = rows.filter((w) => working.has(w.status));
+      const unenrolled = active.filter((w) => !w.scannerId);
+      return {
+        result: {
+          // Counted over every matching row, not only the ones listed below.
+          totals: {
+            matching: rows.length,
+            working: active.length,
+            withoutScannerNumber: unenrolled.length,
+            withoutScannerNumberBySite: countBy(unenrolled, (w) => w.site),
+            bySite: countBy(rows, (w) => w.site),
+            byGroup: countBy(rows, (w) => w.group),
+            byStatus: countBy(rows, (w) => w.status),
+            byNationality: countBy(rows, (w) => w.nationality),
+          },
+          ...cap(rows),
+        },
+      };
     }
 
     case "get_month_pay": {
@@ -342,17 +409,16 @@ export async function runTool(name: string, input: Record<string, unknown>): Pro
               allowance: extras.get(t.code)?.allowance ?? 0,
               advance: extras.get(t.code)?.advance ?? 0,
             })),
-            90,
           ),
         },
       };
     }
 
     case "list_pay_items":
-      return { result: cap(await listPayItems(s(input.month) || undefined), 120) };
+      return { result: cap(await listPayItems(s(input.month) || undefined)) };
 
     case "list_leave":
-      return { result: cap(await listLeave(s(input.code) || undefined), 120) };
+      return { result: cap(await listLeave(s(input.code) || undefined)) };
 
     case "list_documents": {
       const all = await listDocuments();
@@ -365,14 +431,23 @@ export async function runTool(name: string, input: Record<string, unknown>): Pro
       const rows = input.expiring_only
         ? withState.filter((d) => ["expired", "urgent", "soon"].includes(d.state))
         : withState;
-      return { result: cap(rows, 120) };
+      return {
+        result: {
+          totals: {
+            matching: rows.length,
+            byState: countBy(rows, (d) => d.state),
+            byKind: countBy(rows, (d) => d.kind),
+          },
+          ...cap(rows),
+        },
+      };
     }
 
     case "list_notes":
-      return { result: cap(await listNotes(s(input.code) || undefined), 80) };
+      return { result: cap(await listNotes(s(input.code) || undefined)) };
 
     case "list_assignments":
-      return { result: cap(await listAssignments(), 120) };
+      return { result: cap(await listAssignments()) };
 
     case "list_customers": {
       const all = await listCustomers();
@@ -382,7 +457,16 @@ export async function runTool(name: string, input: Record<string, unknown>): Pro
           (!input.state || c.state === s(input.state)) &&
           (!q || `${c.code} ${c.name} ${c.shortName}`.toLowerCase().includes(q)),
       );
-      return { result: cap(rows) };
+      return {
+        result: {
+          totals: {
+            matching: rows.length,
+            stillBuying: rows.filter((c) => c.active).length,
+            byState: countBy(rows, (c) => c.state || "not recorded"),
+          },
+          ...cap(rows),
+        },
+      };
     }
 
     case "list_products": {
@@ -393,7 +477,17 @@ export async function runTool(name: string, input: Record<string, unknown>): Pro
           (!input.group || p.itemGroup === s(input.group)) &&
           (!q || `${p.itemCode} ${p.description}`.toLowerCase().includes(q)),
       );
-      return { result: cap(rows) };
+      return {
+        result: {
+          totals: {
+            matching: rows.length,
+            stillSold: rows.filter((p) => p.active).length,
+            byGroup: countBy(rows, (p) => p.itemGroup || "no group"),
+            byUnit: countBy(rows, (p) => p.uom || "no unit"),
+          },
+          ...cap(rows),
+        },
+      };
     }
 
     case "get_prices": {
@@ -420,7 +514,7 @@ export async function runTool(name: string, input: Record<string, unknown>): Pro
           customer: customers.find((c) => c.code === code)?.name ?? code,
           priced: rows.length,
           belowCost: rows.filter((r) => r.belowCost).length,
-          ...cap(rows, 120),
+          ...cap(rows),
         },
       };
     }
@@ -433,7 +527,6 @@ export async function runTool(name: string, input: Record<string, unknown>): Pro
             ...o,
             value: Math.round(o.lines.reduce((t, l) => t + l.qty * l.price, 0) * 100) / 100,
           })),
-          60,
         ),
       };
     }
