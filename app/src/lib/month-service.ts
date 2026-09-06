@@ -39,9 +39,10 @@ export function buildMonthView(
   /** Approved paid leave, per worker. Those days are not worked, but neither
    *  are they no-pay leave, so they come off the no-pay figure. */
   paidLeave: Map<string, number> = new Map(),
+  /** The month's public holidays. Defaults to the built-in calendar. */
+  holidays: Set<string> = holidaySet(monthKey),
 ): MonthView {
   const { year, month } = parseMonthKey(monthKey);
-  const holidays = holidaySet(monthKey);
   const workingDays = workingDaysInMonth(year, month, holidays);
 
   const active = workers.filter((w) => working.has(w.status));

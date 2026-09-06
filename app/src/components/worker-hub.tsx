@@ -5,13 +5,15 @@ import { DocumentsScreen } from "@/components/documents-screen";
 import { LeaveScreen } from "@/components/leave-screen";
 import { AssignmentsScreen } from "@/components/assignments-screen";
 import { NotesScreen } from "@/components/notes-screen";
+import { HolidaysScreen } from "@/components/holidays-screen";
+import { Holiday } from "@/lib/store-holidays";
 import { expiryLevel } from "@/lib/expiry";
 import {
   Assignment, LeaveRecord, Worker, WorkerDocument, WorkerNote, WorkerStatusOption,
 } from "@/lib/types";
 
 export function WorkerHub({
-  workers, statuses, documents, leave, assignments, notes, today,
+  workers, statuses, documents, leave, assignments, notes, holidays, today,
 }: {
   workers: Worker[];
   statuses: WorkerStatusOption[];
@@ -19,6 +21,7 @@ export function WorkerHub({
   leave: LeaveRecord[];
   assignments: Assignment[];
   notes: WorkerNote[];
+  holidays: Holiday[];
   today: string;
 }) {
   // Anything already expired or expiring within the month is worth a badge on
@@ -60,6 +63,12 @@ export function WorkerHub({
           label: "Warnings & notes",
           note: String(notes.length),
           panel: <NotesScreen notes={notes} workers={workers} />,
+        },
+        {
+          id: "holidays",
+          label: "Public holidays",
+          note: String(holidays.filter((h) => h.onDate.startsWith(today.slice(0, 4))).length),
+          panel: <HolidaysScreen holidays={holidays} />,
         },
       ]}
     />

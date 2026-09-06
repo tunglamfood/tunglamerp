@@ -3,6 +3,8 @@
 // where a worker's things live.
 import { listStatuses, listWorkers } from "@/lib/store";
 import { listAssignments, listDocuments, listLeave, listNotes } from "@/lib/store-hr";
+import { listHolidays } from "@/lib/store-holidays";
+import type { Holiday } from "@/lib/store-holidays";
 import { WorkerHub } from "@/components/worker-hub";
 import { Notice } from "@/components/ui";
 import {
@@ -18,11 +20,13 @@ export default async function WorkersPage() {
   let leave: LeaveRecord[] = [];
   let assignments: Assignment[] = [];
   let notes: WorkerNote[] = [];
+  let holidays: Holiday[] = [];
   let problem: string | null = null;
 
   try {
-    [workers, statuses, documents, leave, assignments, notes] = await Promise.all([
-      listWorkers(), listStatuses(), listDocuments(), listLeave(), listAssignments(), listNotes(),
+    [workers, statuses, documents, leave, assignments, notes, holidays] = await Promise.all([
+      listWorkers(), listStatuses(), listDocuments(), listLeave(), listAssignments(),
+      listNotes(), listHolidays(),
     ]);
   } catch (e) {
     // Most likely the database tables have not been created yet. Say so in
@@ -45,7 +49,7 @@ export default async function WorkersPage() {
   return (
     <WorkerHub
       workers={workers} statuses={statuses} documents={documents}
-      leave={leave} assignments={assignments} notes={notes} today={today}
+      leave={leave} assignments={assignments} notes={notes} holidays={holidays} today={today}
     />
   );
 }

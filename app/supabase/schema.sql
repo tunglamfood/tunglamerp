@@ -245,3 +245,29 @@ create index if not exists assistant_messages_session_idx
 
 alter table assistant_sessions enable row level security;
 alter table assistant_messages enable row level security;
+
+-- ── The company's public holidays ───────────────────────────────────────────
+-- These decide who gets paid for a day nobody worked, so the office keeps them
+-- rather than a programmer. Seeded from "PUBLIC HOLIDAYS OBSERVED - 2026".
+create table if not exists hr_holidays (
+  on_date    date primary key,
+  name       text not null,
+  compulsory boolean not null default false,
+  note       text,
+  created_at timestamptz not null default now()
+);
+alter table hr_holidays enable row level security;
+
+insert into hr_holidays (on_date, name, compulsory, note) values
+  ('2026-01-01', 'New Year',               false, null),
+  ('2026-02-17', 'Chinese New Year (1st)', false, null),
+  ('2026-02-18', 'Chinese New Year (2nd)', false, null),
+  ('2026-03-22', 'Hari Raya Puasa (3rd)',  false, null),
+  ('2026-03-23', 'Hari Raya Puasa (2nd)',  false, 'Replaces Saturday 21 March'),
+  ('2026-05-01', 'Worker / Labour Day',    true,  null),
+  ('2026-06-01', 'Agong Birthday',         true,  null),
+  ('2026-08-31', 'National Day / Merdeka', true,  null),
+  ('2026-09-16', 'Malaysia Day',           true,  null),
+  ('2026-11-06', 'Perak Sultan Birthday',  true,  null),
+  ('2026-11-08', 'Deepavali',              false, null)
+on conflict (on_date) do nothing;
