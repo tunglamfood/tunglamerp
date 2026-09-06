@@ -226,34 +226,21 @@ export async function POST(request: Request) {
 
 /**
  * What the screen needs before anyone types: whether the assistant is switched
- * on, and which models it may be pointed at. Where the key allows it, the list
- * is checked against the account so the picker cannot offer something that will
- * fail — but a failure to check is not a reason to hide the picker.
+ * on, and which models it may be pointed at.
+ *
+ * This used to ask OpenAI to list every model on the account so the picker
+ * could mark one unavailable. That cost a second of waiting on every single
+ * open, to answer a question that does not change — and if a model ever does
+ * stop working, the error already says so in words. Nothing here leaves the
+ * server now, so the picker is there on the first paint.
  */
 export async function GET() {
   if (!(await requireSession())) {
     return Response.json({ error: "Please sign in again." }, { status: 401 });
   }
-
-  const key = process.env.OPENAI_API_KEY;
-  if (!key) {
-    return Response.json({ ready: false, models: MODELS, default: DEFAULT_MODEL });
-  }
-
-  let available: string[] | null = null;
-  try {
-    const list = await new OpenAI({ apiKey: key }).models.list();
-    available = list.data.map((m) => m.id);
-  } catch {
-    available = null; // Could not ask; offer everything rather than nothing.
-  }
-
   return Response.json({
-    ready: true,
+    ready: !!process.env.OPENAI_API_KEY,
     default: DEFAULT_MODEL,
-    models: MODELS.map((m) => ({
-      ...m,
-      available: available == null ? null : available.includes(m.id),
-    })),
+    models: MODELS,
   });
 }

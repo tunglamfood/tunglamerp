@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useState } from "react";
 import { Card, Chip } from "@/components/ui";
-import { AssistantChat, Turn } from "@/components/assistant-chat";
+import { AssistantChat, ModelChoice, Turn } from "@/components/assistant-chat";
 
 interface SessionRow {
   id: number;
@@ -27,9 +27,15 @@ function when(iso: string, today: string): string {
 export function AssistantPage({
   initialSessions,
   today,
+  models,
+  defaultModel,
+  ready,
 }: {
   initialSessions: SessionRow[];
   today: string;
+  models: ModelChoice[];
+  defaultModel: string;
+  ready: boolean;
 }) {
   const [sessions, setSessions] = useState(initialSessions);
   const [sessionId, setSessionId] = useState<number | null>(null);
@@ -183,6 +189,9 @@ export function AssistantPage({
               title={current?.title}
               onRename={sessionId ? rename : undefined}
               onSaved={refreshList}
+              models={models}
+              defaultModel={defaultModel}
+              ready={ready}
             />
           )}
         </Card>

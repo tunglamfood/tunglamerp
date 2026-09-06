@@ -37,6 +37,9 @@ export function AssistantChat({
   onRename,
   onSaved,
   compact,
+  models: given,
+  defaultModel,
+  ready: givenReady,
 }: {
   turns: Turn[];
   setTurns: (turns: Turn[]) => void;
@@ -48,11 +51,19 @@ export function AssistantChat({
   /** Called after a reply lands, so a conversation list can refresh itself. */
   onSaved?: () => void;
   compact?: boolean;
+  /**
+   * Handed down by a page that already knows them, so the bar is complete on
+   * the first paint. The floating panel has no server render of its own, so it
+   * still asks — but that ask no longer talks to OpenAI.
+   */
+  models?: ModelChoice[];
+  defaultModel?: string;
+  ready?: boolean;
 }) {
   const router = useRouter();
-  const [ready, setReady] = useState<boolean | null>(null);
-  const [models, setModels] = useState<ModelChoice[]>([]);
-  const [model, setModel] = useState("");
+  const [ready, setReady] = useState<boolean | null>(givenReady ?? null);
+  const [models, setModels] = useState<ModelChoice[]>(given ?? []);
+  const [model, setModel] = useState(defaultModel ?? given?.[0]?.id ?? "");
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
@@ -62,7 +73,7 @@ export function AssistantChat({
   const scroller = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (ready !== null) return;
+    if (ready !== null || given) return; // already known from the server
     void fetch("/api/assistant")
       .then((r) => r.json())
       .then((b) => {
@@ -71,7 +82,7 @@ export function AssistantChat({
         setModel((m) => m || b.default || (b.models?.[0]?.id ?? ""));
       })
       .catch(() => setReady(false));
-  }, [ready]);
+  }, [ready, given]);
 
   // Scroll the message list itself, never the page. scrollIntoView was moving
   // the whole window, so arriving on this page from anywhere else dumped you at
