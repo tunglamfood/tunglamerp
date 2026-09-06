@@ -169,18 +169,27 @@ export function AssistantChat({
             )}
           </div>
 
-          {models.length > 1 && (
-            <Select
-              className="w-[128px] shrink-0"
-              value={model}
-              onChange={setModel}
-              options={models.map((m) => ({
-                value: m.id,
-                label: m.label,
-                note: m.available === false ? "not on this key" : undefined,
-              }))}
-            />
-          )}
+          {/* The slot keeps its width whether the model list has arrived or
+              not — otherwise the bar is narrow for a moment on load and then
+              snaps wider, which reads as the page breaking. */}
+          <div className="w-[128px] shrink-0">
+            {models.length > 0 ? (
+              <Select
+                value={model}
+                onChange={setModel}
+                options={models.map((m) => ({
+                  value: m.id,
+                  label: m.label,
+                  note: m.available === false ? "not on this key" : undefined,
+                }))}
+              />
+            ) : (
+              <div
+                aria-hidden
+                className="h-[42px] rounded-xl border border-line bg-white"
+              />
+            )}
+          </div>
         </div>
       )}
 

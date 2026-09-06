@@ -97,34 +97,35 @@ export function AssistantPage({
   }
 
   return (
-    <>
-      <div className="mb-6">
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="mb-4 shrink-0">
         <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-faint">
           Assistant
         </div>
-        <h1 className="mt-1 text-2xl font-extrabold tracking-tight">Ask the system</h1>
+        <h1 className="mt-0.5 text-2xl font-extrabold tracking-tight">Ask the system</h1>
         <p className="mt-1 text-sm text-mute">
           It reads the factory&rsquo;s own records to answer, and can add records for you. It
           cannot delete anything or run the payroll export. Every conversation is kept.
         </p>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[280px_1fr]">
+      {/* The page itself never scrolls. Only these two do. */}
+      <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[280px_1fr]">
         {/* ── past conversations ──────────────────────────────────────────── */}
-        <div className="lg:order-1">
+        <div className="flex min-h-0 flex-col lg:order-1">
           <button
             onClick={startNew}
-            className="mb-3 w-full rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-accent-hover"
+            className="mb-3 shrink-0 rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-accent-hover"
           >
             New conversation
           </button>
 
-          <Card className="overflow-hidden">
-            <div className="border-b border-line px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.1em] text-faint">
+          <Card className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            <div className="shrink-0 border-b border-line px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.1em] text-faint">
               Past conversations
               {sessions.length > 0 && <span className="nums ml-1.5">{sessions.length}</span>}
             </div>
-            <div className="max-h-[520px] overflow-y-auto">
+            <div className="min-h-0 flex-1 overflow-y-auto">
               {sessions.length === 0 && (
                 <p className="px-4 py-6 text-sm text-mute">
                   Nothing yet. Ask something and it will be kept here.
@@ -168,7 +169,7 @@ export function AssistantPage({
         </div>
 
         {/* ── the conversation ────────────────────────────────────────────── */}
-        <Card className="flex h-[620px] flex-col overflow-hidden lg:order-2">
+        <Card className="flex min-h-0 flex-col overflow-hidden lg:order-2">
           {loading ? (
             <div className="flex flex-1 items-center justify-center text-sm text-mute">
               Opening…
@@ -186,6 +187,6 @@ export function AssistantPage({
           )}
         </Card>
       </div>
-    </>
+    </div>
   );
 }

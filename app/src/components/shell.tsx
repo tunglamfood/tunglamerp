@@ -114,6 +114,12 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
 
+  // The assistant fills the screen and scrolls inside itself, so the page
+  // around it must not scroll as well — two scrollbars fighting is worse than
+  // either. It also carries its own Ask box, so the floating button would only
+  // be in the way there.
+  const fillsScreen = pathname.startsWith("/assistant");
+
   async function signOut() {
     await fetch("/api/logout", { method: "POST" });
     router.push("/login");
@@ -169,13 +175,19 @@ export function Shell({ children }: { children: React.ReactNode }) {
         </div>
       )}
 
-      <main className="p-4 pb-24 md:ml-60 md:p-8 md:pb-24 print:ml-0 print:p-0">
-        <div className="mx-auto max-w-6xl">{children}</div>
+      <main
+        className={
+          fillsScreen
+            ? "h-[calc(100dvh-3.5rem)] overflow-hidden p-4 md:ml-60 md:h-dvh md:p-6 print:ml-0 print:p-0"
+            : "p-4 pb-24 md:ml-60 md:p-8 md:pb-24 print:ml-0 print:p-0"
+        }
+      >
+        <div className={`mx-auto max-w-6xl ${fillsScreen ? "h-full" : ""}`}>{children}</div>
       </main>
 
       {/* Reachable from every screen — it is meant to be asked something while
           you are already looking at something else. */}
-      <Assistant />
+      {!fillsScreen && <Assistant />}
     </div>
   );
 }
