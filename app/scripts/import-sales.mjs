@@ -39,12 +39,43 @@ function headerRow(rows, name) {
 const col = (header, name) =>
   header.findIndex((c) => clean(c).toLowerCase() === name.toLowerCase());
 
-/** The address usually ends with ", State, Malaysia" — pull the state out. */
+// The state each customer is in, worked out with the same rules the app uses.
+// Prices are set state by state, so getting this consistent matters: "PERAK"
+// and "Perak" counted apart means two half-answers to every question, and
+// Penang is written "PULAU PINANG" throughout — looking for "Penang" finds none.
+const STATES = [
+  ["Johor", ["johor", "johore"]],
+  ["Kedah", ["kedah"]],
+  ["Kelantan", ["kelantan"]],
+  ["Melaka", ["melaka", "malacca"]],
+  ["Negeri Sembilan", ["negeri sembilan", "n sembilan", "n. sembilan"]],
+  ["Pahang", ["pahang"]],
+  ["Penang", ["pulau pinang", "p pinang", "p. pinang", "penang", "pinang"]],
+  ["Perak", ["perak"]],
+  ["Perlis", ["perlis"]],
+  ["Sabah", ["sabah"]],
+  ["Sarawak", ["sarawak"]],
+  ["Selangor", ["selangor"]],
+  ["Terengganu", ["terengganu", "trengganu"]],
+  ["Kuala Lumpur", ["kuala lumpur", "w.p. kuala lumpur", "wilayah persekutuan"]],
+  ["Putrajaya", ["putrajaya"]],
+  ["Labuan", ["labuan"]],
+  ["Singapore", ["singapore", "singapura"]],
+];
+
 function stateFrom(address) {
-  const parts = clean(address).split(/\n|,/).map((p) => p.trim()).filter(Boolean);
-  const last = parts[parts.length - 1] ?? "";
-  const state = /malaysia/i.test(last) ? parts[parts.length - 2] : last;
-  return (state ?? "").replace(/\s+/g, " ").trim();
+  const text = String(address ?? "")
+    .toLowerCase()
+    .replace(/[^a-z\s]/g, " ")
+    .replace(/\s+/g, " ");
+  if (!text.trim()) return "";
+  // Padded and matched on whole words with includes, rather than a regex —
+  // no escaping to get wrong, and "perak" cannot match inside "perakaunan".
+  const padded = ` ${text} `;
+  const found = STATES.flatMap(([name, spellings]) => spellings.map((sp) => ({ name, sp })))
+    .sort((a, b) => b.sp.length - a.sp.length)
+    .find((s) => padded.includes(` ${s.sp} `));
+  return found ? found.name : "";
 }
 
 const login = await fetch(`${BASE}/api/login`, {

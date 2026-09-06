@@ -10,6 +10,7 @@ import OpenAI from "openai";
 import { requireSession } from "@/lib/supabase-server";
 import { TOOLS, runTool } from "@/lib/assistant-tools";
 import { DEFAULT_MODEL, MODELS, isKnownModel } from "@/lib/assistant-models";
+import { addMessages, createSession, titleFrom } from "@/lib/store-assistant";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -108,9 +109,13 @@ export async function POST(request: Request) {
     );
   }
 
-  let body: { messages?: Turn[]; model?: string };
+  let body: { messages?: Turn[]; model?: string; sessionId?: number };
   try {
-    body = (await request.json()) as { messages?: Turn[]; model?: string };
+    body = (await request.json()) as {
+      messages?: Turn[];
+      model?: string;
+      sessionId?: number;
+    };
   } catch {
     return Response.json({ error: "Could not read what was sent." }, { status: 400 });
   }
@@ -129,6 +134,25 @@ export async function POST(request: Request) {
 
   const changed: string[] = [];
   const used: string[] = [];
+  const asked = history[history.length - 1]?.content ?? "";
+
+  /**
+   * Saves the exchange and hands back the conversation it belongs to. A
+   * failure to save must not swallow the answer — the office would rather have
+   * the reply and lose the record than lose both.
+   */
+  async function keep(reply: string): Promise<{ sessionId: number | null; saved: boolean }> {
+    try {
+      const sessionId = body.sessionId ?? (await createSession(titleFrom(asked), model));
+      await addMessages(sessionId, [
+        { role: "user", content: asked, changed: [], toolsUsed: [], model },
+        { role: "assistant", content: reply, changed, toolsUsed: used, model },
+      ]);
+      return { sessionId, saved: true };
+    } catch {
+      return { sessionId: body.sessionId ?? null, saved: false };
+    }
+  }
 
   try {
     for (let turn = 0; turn < MAX_TURNS; turn++) {
@@ -141,17 +165,15 @@ export async function POST(request: Request) {
       const choice = response.choices[0];
       const message = choice?.message;
       if (!message) {
-        return Response.json({ reply: "I could not find anything to say about that.", changed, used });
+        const reply = "I could not find anything to say about that.";
+        return Response.json({ reply, changed, used, model, ...(await keep(reply)) });
       }
 
       const calls = message.tool_calls ?? [];
       if (calls.length === 0) {
-        return Response.json({
-          reply: (message.content ?? "").trim() || "I could not find anything to say about that.",
-          changed,
-          used,
-          model,
-        });
+        const reply =
+          (message.content ?? "").trim() || "I could not find anything to say about that.";
+        return Response.json({ reply, changed, used, model, ...(await keep(reply)) });
       }
 
       messages.push(message);
@@ -192,14 +214,10 @@ export async function POST(request: Request) {
       }
     }
 
-    return Response.json({
-      reply:
-        "That turned into more steps than I can take in one go. Try asking for a " +
-        "smaller piece of it.",
-      changed,
-      used,
-      model,
-    });
+    const reply =
+      "That turned into more steps than I can take in one go. Try asking for a " +
+      "smaller piece of it.";
+    return Response.json({ reply, changed, used, model, ...(await keep(reply)) });
   } catch (e) {
     const { message, status } = explain(e);
     return Response.json({ error: message, changed }, { status });

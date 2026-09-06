@@ -3,6 +3,7 @@ import { Chip, Combobox, Field, inputCls } from "@/components/ui";
 import { Column, RecordScreen } from "@/components/record-screen";
 import { post } from "@/lib/api";
 import { Customer } from "@/lib/types";
+import { tidyState } from "@/lib/states";
 
 export function CustomersScreen({ customers }: { customers: Customer[] }) {
   const states = [...new Set(customers.map((c) => c.state).filter(Boolean))].sort();

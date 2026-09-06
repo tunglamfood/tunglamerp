@@ -12,10 +12,17 @@ import { Assistant } from "@/components/assistant";
  */
 export const MODULES = [
   {
-    name: "HR",
+    name: "",
     ready: true,
     items: [
       { href: "/home", label: "Dashboard", icon: "home" as const },
+      { href: "/assistant", label: "Assistant", icon: "spark" as const },
+    ],
+  },
+  {
+    name: "HR",
+    ready: true,
+    items: [
       { href: "/month", label: "Monthly pay", icon: "calendar" as const },
       { href: "/workers", label: "Workers", icon: "people" as const },
     ],
@@ -32,7 +39,7 @@ export const MODULES = [
   },
 ] as const;
 
-type IconName = "home" | "calendar" | "people" | "shop" | "box" | "doc" | "shield" | "wallet";
+type IconName = "home" | "calendar" | "people" | "shop" | "box" | "doc" | "shield" | "wallet" | "spark";
 
 function Icon({ name }: { name: IconName }) {
   const paths: Record<IconName, string> = {
@@ -44,6 +51,7 @@ function Icon({ name }: { name: IconName }) {
     doc: "M5 3h6l4 4v10H5V3Zm6 0v4h4M7.5 11h5M7.5 14h5",
     shield: "M10 3 4 5.5V10c0 3.5 2.5 6 6 7 3.5-1 6-3.5 6-7V5.5L10 3Z",
     wallet: "M3 6h12a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H3V6Zm0 0V5a1 1 0 0 1 1-1h9M14 11h.01",
+    spark: "M10 2.5 11.6 7l4.4 1.6L11.6 10 10 14.5 8.4 10 4 8.6 8.4 7 10 2.5Z",
   };
   return (
     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5"
@@ -58,6 +66,7 @@ function NavLinks({ pathname, onNavigate }: { pathname: string; onNavigate?: () 
     <nav className="flex-1 space-y-6 px-3 py-2">
       {MODULES.map((mod) => (
         <div key={mod.name}>
+          {mod.name && (
           <div className="mb-1.5 flex items-center gap-2 px-3">
             <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-shell-mute">
               {mod.name}
@@ -68,6 +77,7 @@ function NavLinks({ pathname, onNavigate }: { pathname: string; onNavigate?: () 
               </span>
             )}
           </div>
+          )}
           <div className="space-y-0.5">
             {mod.items.map((item) => {
               const active = mod.ready && pathname.startsWith(item.href);
