@@ -8,10 +8,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Btn, Card, Chip, Notice, Select } from "@/components/ui";
 import { PrintButton } from "@/components/print-button";
+import { OrderReaderPanel } from "@/components/order-reader-panel";
 import {
   SheetOutlet, SheetRow, buildRows, itemQty, priceOf, rowsToBatches, rowsToLines,
   sheetTotals, sheetWarnings,
 } from "@/lib/sheet";
+import { isSellable } from "@/lib/order-reader";
 import { Customer, CustomerGroup, PriceRow, Product, SalesOrder } from "@/lib/types";
 
 const money = (n: number) =>
@@ -27,10 +29,16 @@ function deliveryLabel(date: string): string {
   return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")} (${day})`;
 }
 
-/** SNW, SMY — the short heading, taken from the tail of the Million name. */
+/**
+ * SNW, SMY — the heading this outlet gets on the sheet.
+ *
+ * Kept against the outlet rather than guessed from the Million name, which does
+ * not reliably contain it: the Setiawangsa shop is recorded as "ST SW", and no
+ * amount of reading that name produces "Setiawangsa". The fallback below only
+ * runs for an outlet nobody has given a heading yet.
+ */
 function shortOf(c: Customer): string {
-  const m = c.name.match(/\b(?:ST\s+)?([A-Z]{2,6})\s*$/);
-  if (m && m[1] !== "SDN" && m[1] !== "BHD") return m[1];
+  if (c.shortCode) return c.shortCode;
   const inside = c.name.match(/\(([^)]{2,20})\)/);
   return (inside ? inside[1] : c.shortName || c.code).trim().slice(0, 12).toUpperCase();
 }
@@ -52,6 +60,7 @@ export function SheetScreen({
   const [problem, setProblem] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const [adding, setAdding] = useState("");
+  const [reading, setReading] = useState(false);
   const cellRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const group = groups.find((g) => g.code === groupCode);
@@ -104,7 +113,7 @@ export function SheetScreen({
   const warnings = useMemo(() => sheetWarnings(rows, totals), [rows, totals]);
 
   const chosen = new Set(rows.map((r) => r.itemCode));
-  const available = products.filter((p) => p.active && !chosen.has(p.itemCode));
+  const available = products.filter((p) => isSellable(p) && !chosen.has(p.itemCode));
 
   function addItem(itemCode: string) {
     if (!itemCode || chosen.has(itemCode)) return;
@@ -121,6 +130,52 @@ export function SheetScreen({
     }]);
     setSavedAt(null);
     setAdding("");
+  }
+
+  /**
+   * Puts a read order onto the sheet.
+   *
+   * Quantities are set rather than added: reading the same order twice should
+   * leave the sheet saying what the order says, not double it. Two lines for
+   * the same item and outlet within one reading are added together first,
+   * because that is one order asking for both.
+   */
+  function acceptRead(
+    read: { itemCode: string; outletCode: string; qty: number }[],
+    said: string | null,
+  ) {
+    const wanted = new Map<string, Record<string, number>>();
+    for (const l of read) {
+      const at = wanted.get(l.itemCode) ?? {};
+      at[l.outletCode] = (at[l.outletCode] ?? 0) + l.qty;
+      wanted.set(l.itemCode, at);
+    }
+
+    setRows((all) => {
+      const next = all.map((r) => {
+        const at = wanted.get(r.itemCode);
+        return at ? { ...r, qty: { ...r.qty, ...at } } : r;
+      });
+      const known = new Set(all.map((r) => r.itemCode));
+      for (const [itemCode, at] of wanted) {
+        if (known.has(itemCode)) continue;
+        const p = products.find((x) => x.itemCode === itemCode);
+        next.push({
+          itemCode,
+          label: labels[itemCode] ?? p?.description ?? itemCode,
+          packSize: p?.packSize ?? "",
+          uom: p?.uom ?? "BAG",
+          price: priceOf({ groupCode }, p, prices, deliverOn),
+          qty: at,
+          batchCode: "",
+          batchConfirmed: false,
+        });
+      }
+      return next;
+    });
+
+    if (said && said !== deliverOn) setDeliverOn(said);
+    setSavedAt(null);
   }
 
   function setQty(i: number, outlet: string, raw: string) {
@@ -208,6 +263,9 @@ export function SheetScreen({
           />
         </div>
         <div className="flex-1" />
+        <Btn kind="ghost" onClick={() => setReading(true)} disabled={!groupCode}>
+          Read a customer order
+        </Btn>
         <Btn onClick={() => void save()} disabled={busy || rows.length === 0}>
           {busy ? "Working…" : "Save"}
         </Btn>
@@ -373,6 +431,16 @@ export function SheetScreen({
           <Chip>{outlets.length} outlets</Chip>
         </div>
       </Card>
+
+      <OrderReaderPanel
+        open={reading}
+        onClose={() => setReading(false)}
+        groupCode={groupCode}
+        outlets={outlets.map((o) => ({ code: o.code, name: o.name }))}
+        products={products}
+        labels={labels}
+        onAccept={acceptRead}
+      />
 
       <p className="mt-3 text-[11px] leading-relaxed text-faint no-print">
         The <strong>Total qty</strong> column is what manufacturing makes. Each outlet&rsquo;s

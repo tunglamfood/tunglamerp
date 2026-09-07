@@ -13,13 +13,14 @@ type CustomerRow = {
   code: string; name: string; short_name: string; state: string;
   address: string | null; contact: string | null; email: string | null;
   attn: string | null; income_taxno: string | null; active: boolean;
-  group_code: string | null;
+  group_code: string | null; short_code: string | null;
 };
 
 const toCustomer = (r: CustomerRow): Customer => ({
   code: r.code, name: r.name, shortName: r.short_name, state: r.state,
   address: r.address, contact: r.contact, email: r.email, attn: r.attn,
   incomeTaxNo: r.income_taxno, active: r.active, groupCode: r.group_code ?? null,
+  shortCode: r.short_code ?? null,
 });
 
 export async function listCustomers(): Promise<Customer[]> {
@@ -330,6 +331,17 @@ export async function listAliases(): Promise<Record<string, string>> {
   for (const r of (data ?? []) as { alias: string; item_code: string }[]) {
     // Keyed by item so the sheet can print the office's own shorthand.
     out[r.item_code] = r.alias;
+  }
+  return out;
+}
+
+/** The other names a branch answers to, keyed the way matching looks them up. */
+export async function listOutletAliases(): Promise<Record<string, string>> {
+  const { data, error } = await serverSupabase().from("sales_outlet_aliases").select("*");
+  fail("Could not load the outlet names", error);
+  const out: Record<string, string> = {};
+  for (const r of (data ?? []) as { alias: string; customer_code: string }[]) {
+    out[r.alias.toUpperCase().replace(/[^A-Z0-9]/g, "")] = r.customer_code;
   }
   return out;
 }

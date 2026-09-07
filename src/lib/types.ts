@@ -183,6 +183,8 @@ export interface Customer {
   active: boolean;
   /** The group this outlet belongs to, if it is one of several. */
   groupCode?: string | null;
+  /** SNW, SMY — the heading this outlet gets on an order form. */
+  shortCode?: string | null;
 }
 
 export interface Product {
