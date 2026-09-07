@@ -11,7 +11,7 @@
 **Spec:** `TungLamHR/docs/superpowers/specs/2026-09-05-hr-ot-calculation-design.md`
 
 > **Historical record.** Folder names have changed since this was written, on
-> 2026-09-07. `TungLamHR/` is now the project root `ERP/`; the loose source
+> 2026-09-07. `TungLamHR/` is gone — the project root is now `TungLam/` itself; the loose source
 > spreadsheets are in `data/`; `TungLamHRSystem/` is gone — its reference files
 > are in `reference/` and the old app is on the `old-card-scanner-app` branch.
 > Paths below are left as they were, so the plan still reads as it was executed.
