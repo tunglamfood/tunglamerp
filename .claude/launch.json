@@ -5,7 +5,7 @@
       "name": "TungLam ERP",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
-      "cwd": "app",
+      "cwd": ".",
       "port": 3000
     }
   ]

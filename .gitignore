@@ -1,12 +1,37 @@
+# dependencies
 node_modules/
+.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# build output
 .next/
 out/
 build/
-.env.local
-.env*.local
 *.tsbuildinfo
-.DS_Store
-.superpowers/
+next-env.d.ts
 
-# Personal editor settings, not part of the project
+# testing
+coverage/
+
+# settings and keys — never commit these
+.env*
+.vercel
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# misc
+.DS_Store
+*.pem
+
+# agent scratch
+.superpowers/
 .claude/settings.local.json

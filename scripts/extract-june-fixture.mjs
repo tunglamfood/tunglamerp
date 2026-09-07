@@ -8,7 +8,7 @@ import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
-const SRC = fileURLToPath(new URL("../../reference/Payroll_June_Sample.xlsx", import.meta.url));
+const SRC = fileURLToPath(new URL("../reference/Payroll_June_Sample.xlsx", import.meta.url));
 const OUT = path.join(process.cwd(), "src/lib/__fixtures__/june-2026.json");
 
 /** 26.87 -> "27:27". Returns null for blanks. */

@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { readCheckTime } from "./checktime-reader";
 
 const REAL = fileURLToPath(
-  new URL("../../../data/CHECKTIME_InOutReportAll.xlsx", import.meta.url),
+  new URL("../../data/CHECKTIME_InOutReportAll.xlsx", import.meta.url),
 );
 
 /** Build a miniature CheckTime export with the same shape as the real one. */

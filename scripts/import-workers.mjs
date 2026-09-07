@@ -11,10 +11,10 @@ import { fileURLToPath } from "node:url";
 
 const BASE = process.env.BASE_URL ?? "http://localhost:3000";
 const KEYIN = fileURLToPath(
-  new URL("../../reference/MillionPayroll_KeyIn_June2026.xlsx", import.meta.url),
+  new URL("../reference/MillionPayroll_KeyIn_June2026.xlsx", import.meta.url),
 );
 const ENROLLED = fileURLToPath(
-  new URL("../../data/CHECKTIME _WORKER NAME LIST _FORMAT.xls", import.meta.url),
+  new URL("../data/CHECKTIME _WORKER NAME LIST _FORMAT.xls", import.meta.url),
 );
 
 const NATIONALITY = { B: "Bangladesh", M: "Myanmar", N: "Nepal" };

@@ -21,7 +21,7 @@ run out soon", "is anything sold below cost to 433" — and can add records for
 you. It cannot delete anything, cannot change many records at once, and cannot
 run the payroll export. Anything it saves is listed under its answer.
 
-It uses the `OPENAI_API_KEY` already in `app/.env.local`. Two models to pick
+It uses the `OPENAI_API_KEY` already in `.env.local`. Two models to pick
 from in the panel: **5.4 mini** by default, which is quicker and cheaper and
 enough for most questions, and **5.2** for something that needs more thought.
 No temperature or other sampling setting is applied — the model's own defaults
@@ -41,12 +41,11 @@ project, and press Restore. It takes about ten minutes to wake up.
 ## Running it
 
 ```bash
-cd app
 npm install     # first time only
 npm run dev     # then open http://localhost:3000
 ```
 
-Sign in with the password in `app/.env.local`.
+Sign in with the password in `.env.local`.
 
 All 85 workers are already loaded. To reload them from the June key-in sheet:
 
@@ -75,7 +74,6 @@ on the scanner. Click any row to edit them in the side panel.
 ## Checking it still works
 
 ```bash
-cd app
 npm test        # 425 tests, including all 85 workers of June 2026
 ```
 
@@ -83,19 +81,19 @@ npm test        # 425 tests, including all 85 workers of June 2026
 
 | | |
 |---|---|
-| The payroll rules | `app/src/lib/day-calc.ts` — every rule lives here and nowhere else |
-| Monthly totals | `app/src/lib/month-calc.ts` |
-| The review list | `app/src/lib/flags.ts` |
-| Reading the scanner file | `app/src/lib/checktime-reader.ts` |
-| Writing the Million file | `app/src/lib/million-writer.ts` |
-| Public holidays | `app/src/lib/holidays.ts` |
+| The payroll rules | `src/lib/day-calc.ts` — every rule lives here and nowhere else |
+| Monthly totals | `src/lib/month-calc.ts` |
+| The review list | `src/lib/flags.ts` |
+| Reading the scanner file | `src/lib/checktime-reader.ts` |
+| Writing the Million file | `src/lib/million-writer.ts` |
+| Public holidays | `src/lib/holidays.ts` |
 | The design and the reasoning | `docs/superpowers/specs/` |
 | The spreadsheets out of Million | `data/` |
 | What the rules were built from | `reference/` |
 
-Nothing outside this folder is needed. `data/` and `reference/` are found by a
-path relative to the project, so the whole folder can be moved or copied to
-another computer and still work.
+The website is the project root, so it deploys with no folder setting to get
+wrong. `data/` and `reference/` sit beside it and are found by a path relative
+to each file, so the whole folder can be moved or copied and still work.
 
 The old card-scanning app is no longer kept as a folder. Its full history is on
 the `old-card-scanner-app` branch of this repository:

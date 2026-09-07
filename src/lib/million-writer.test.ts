@@ -7,7 +7,7 @@ import { MILLION_COLUMNS, COL } from "./million-columns";
 import { MonthTotals, PayExtras } from "./types";
 
 const TEMPLATE = fileURLToPath(
-  new URL("../../../data/MILLION_IMPORT_JULY_2026_ TEMPLATE.xls", import.meta.url),
+  new URL("../../data/MILLION_IMPORT_JULY_2026_ TEMPLATE.xls", import.meta.url),
 );
 
 const totals: MonthTotals = {

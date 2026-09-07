@@ -13,11 +13,11 @@ import { DayInput, Worker } from "./types";
 import { rowsToDayInputs } from "./store-mapping";
 
 const SCANS = fileURLToPath(
-  new URL("../../../data/CHECKTIME_InOutReportAll.xlsx", import.meta.url),
+  new URL("../../data/CHECKTIME_InOutReportAll.xlsx", import.meta.url),
 );
 const KEYIN =
   fileURLToPath(
-    new URL("../../../reference/MillionPayroll_KeyIn_June2026.xlsx", import.meta.url),
+    new URL("../../reference/MillionPayroll_KeyIn_June2026.xlsx", import.meta.url),
   );
 
 /** October 2025 is the month with the most scan data in the trial export. */

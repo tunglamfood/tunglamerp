@@ -7,7 +7,7 @@ import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 
 const BASE = process.env.BASE_URL ?? "http://localhost:3000";
-const DIR = fileURLToPath(new URL("../../data/", import.meta.url));
+const DIR = fileURLToPath(new URL("../data/", import.meta.url));
 const CUSTOMERS = DIR + "IT_CUSTOMER LIST.xlsx";
 const PRODUCTS = DIR + "IT_ITEM DESCRIPTION LIST.xlsx";
 const PENANG = DIR + "IT_PRODUCT_COST_PENANG_CLEANED.xlsx";
