@@ -1,16 +1,13 @@
 // The company's public holidays, kept where the office can change them.
 import "server-only";
 import { serverSupabase } from "./supabase-server";
+import { fail } from "./db-error";
 
 export interface Holiday {
   onDate: string;
   name: string;
   compulsory: boolean;
   note: string | null;
-}
-
-function fail(what: string, error: { message: string } | null): void {
-  if (error) throw new Error(`${what}: ${error.message}`);
 }
 
 export async function listHolidays(year?: string): Promise<Holiday[]> {

@@ -4,13 +4,10 @@
 // small generic pair of helpers rather than six near-identical copies.
 import "server-only";
 import { serverSupabase } from "./supabase-server";
+import { fail } from "./db-error";
 import {
   Assignment, LeaveRecord, PayItem, WorkerDocument, WorkerNote,
 } from "./types";
-
-function fail(what: string, error: { message: string } | null): void {
-  if (error) throw new Error(`${what}: ${error.message}`);
-}
 
 async function rowsOf<T>(
   table: string,

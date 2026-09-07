@@ -1,13 +1,10 @@
 // Customers, products, dealer prices and sales orders.
 import "server-only";
 import { serverSupabase } from "./supabase-server";
+import { fail } from "./db-error";
 import {
   Customer, OrderLine, PriceRow, Product, SalesOrder, OrderStatus,
 } from "./types";
-
-function fail(what: string, error: { message: string } | null): void {
-  if (error) throw new Error(`${what}: ${error.message}`);
-}
 
 /* ── Customers ────────────────────────────────────────────────────────────── */
 

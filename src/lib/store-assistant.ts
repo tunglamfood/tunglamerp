@@ -1,6 +1,7 @@
 // Conversations with the assistant, kept.
 import "server-only";
 import { serverSupabase } from "./supabase-server";
+import { fail } from "./db-error";
 
 export interface AssistantMessage {
   id?: number;
@@ -21,10 +22,6 @@ export interface AssistantSession {
   /** Filled in by listSessions, so the list can show a count without a second call. */
   messageCount?: number;
   changeCount?: number;
-}
-
-function fail(what: string, error: { message: string } | null): void {
-  if (error) throw new Error(`${what}: ${error.message}`);
 }
 
 /**

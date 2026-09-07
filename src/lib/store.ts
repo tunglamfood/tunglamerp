@@ -2,6 +2,7 @@
 import "server-only";
 import { serverSupabase } from "./supabase-server";
 import { DayInput, PayExtras, Worker, WorkerStatusOption } from "./types";
+import { fail } from "./db-error";
 import {
   CorrectionDbRow,
   ScanDbRow,
@@ -10,11 +11,6 @@ import {
   rowsToDayInputs,
   workerToRow,
 } from "./store-mapping";
-
-/** Every failure here reaches the office as a sentence, not a stack trace. */
-function fail(what: string, error: { message: string } | null): void {
-  if (error) throw new Error(`${what}: ${error.message}`);
-}
 
 export async function listWorkers(): Promise<Worker[]> {
   const { data, error } = await serverSupabase().from("hr_workers").select("*").order("code");
