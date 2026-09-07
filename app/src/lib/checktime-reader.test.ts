@@ -3,7 +3,7 @@ import * as XLSX from "xlsx";
 import fs from "node:fs";
 import { readCheckTime } from "./checktime-reader";
 
-const REAL = "c:/Users/USER/OneDrive/Desktop/TungLam/CHECKTIME_InOutReportAll.xlsx";
+const REAL = "c:/Users/USER/OneDrive/Desktop/TungLam/Exports from Million/CHECKTIME_InOutReportAll.xlsx";
 
 /** Build a miniature CheckTime export with the same shape as the real one. */
 function fakeExport(dataRows: unknown[][]): Buffer {

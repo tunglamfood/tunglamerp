@@ -11,9 +11,9 @@ import { MILLION_COLUMNS, COL } from "./million-columns";
 import { DayInput, Worker } from "./types";
 import { rowsToDayInputs } from "./store-mapping";
 
-const SCANS = "c:/Users/USER/OneDrive/Desktop/TungLam/CHECKTIME_InOutReportAll.xlsx";
+const SCANS = "c:/Users/USER/OneDrive/Desktop/TungLam/Exports from Million/CHECKTIME_InOutReportAll.xlsx";
 const KEYIN =
-  "c:/Users/USER/OneDrive/Desktop/TungLam/TungLamHRSystem/MillionPayroll_KeyIn_June2026.xlsx";
+  "c:/Users/USER/OneDrive/Desktop/TungLam/Reference/MillionPayroll_KeyIn_June2026.xlsx";
 
 /** October 2025 is the month with the most scan data in the trial export. */
 const MONTH = "2025-10";

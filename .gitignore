@@ -7,3 +7,6 @@ build/
 *.tsbuildinfo
 .DS_Store
 .superpowers/
+
+# Personal editor settings, not part of the project
+.claude/settings.local.json

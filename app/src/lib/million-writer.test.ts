@@ -5,7 +5,7 @@ import { buildMillionRows, writeMillionXls } from "./million-writer";
 import { MILLION_COLUMNS, COL } from "./million-columns";
 import { MonthTotals, PayExtras } from "./types";
 
-const TEMPLATE = "c:/Users/USER/OneDrive/Desktop/TungLam/MILLION_IMPORT_JULY_2026_ TEMPLATE.xls";
+const TEMPLATE = "c:/Users/USER/OneDrive/Desktop/TungLam/Exports from Million/MILLION_IMPORT_JULY_2026_ TEMPLATE.xls";
 
 const totals: MonthTotals = {
   code: "B08",

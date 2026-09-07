@@ -9,8 +9,8 @@ import * as XLSX from "xlsx";
 import fs from "node:fs";
 
 const BASE = process.env.BASE_URL ?? "http://localhost:3000";
-const KEYIN = "c:/Users/USER/OneDrive/Desktop/TungLam/TungLamHRSystem/MillionPayroll_KeyIn_June2026.xlsx";
-const ENROLLED = "c:/Users/USER/OneDrive/Desktop/TungLam/CHECKTIME _WORKER NAME LIST _FORMAT.xls";
+const KEYIN = "c:/Users/USER/OneDrive/Desktop/TungLam/Reference/MillionPayroll_KeyIn_June2026.xlsx";
+const ENROLLED = "c:/Users/USER/OneDrive/Desktop/TungLam/Exports from Million/CHECKTIME _WORKER NAME LIST _FORMAT.xls";
 
 const NATIONALITY = { B: "Bangladesh", M: "Myanmar", N: "Nepal" };
 

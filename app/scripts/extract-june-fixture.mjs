@@ -7,7 +7,7 @@ import * as XLSX from "xlsx";
 import fs from "node:fs";
 import path from "node:path";
 
-const SRC = "c:/Users/USER/OneDrive/Desktop/TungLam/TungLamHRSystem/Payroll_June_Sample.xlsx";
+const SRC = "c:/Users/USER/OneDrive/Desktop/TungLam/Reference/Payroll_June_Sample.xlsx";
 const OUT = path.join(process.cwd(), "src/lib/__fixtures__/june-2026.json");
 
 /** 26.87 -> "27:27". Returns null for blanks. */
