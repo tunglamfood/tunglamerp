@@ -7,10 +7,15 @@
 // Run it with the app already running:  npm run dev,  then  node scripts/import-workers.mjs
 import * as XLSX from "xlsx";
 import fs from "node:fs";
+import { fileURLToPath } from "node:url";
 
 const BASE = process.env.BASE_URL ?? "http://localhost:3000";
-const KEYIN = "c:/Users/USER/OneDrive/Desktop/TungLam/Reference/MillionPayroll_KeyIn_June2026.xlsx";
-const ENROLLED = "c:/Users/USER/OneDrive/Desktop/TungLam/Exports from Million/CHECKTIME _WORKER NAME LIST _FORMAT.xls";
+const KEYIN = fileURLToPath(
+  new URL("../../reference/MillionPayroll_KeyIn_June2026.xlsx", import.meta.url),
+);
+const ENROLLED = fileURLToPath(
+  new URL("../../data/CHECKTIME _WORKER NAME LIST _FORMAT.xls", import.meta.url),
+);
 
 const NATIONALITY = { B: "Bangladesh", M: "Myanmar", N: "Nepal" };
 

@@ -4,6 +4,7 @@
 import { describe, it, expect } from "vitest";
 import * as XLSX from "xlsx";
 import fs from "node:fs";
+import { fileURLToPath } from "node:url";
 import { readCheckTime } from "./checktime-reader";
 import { buildMonthView } from "./month-service";
 import { writeMillionXls } from "./million-writer";
@@ -11,9 +12,13 @@ import { MILLION_COLUMNS, COL } from "./million-columns";
 import { DayInput, Worker } from "./types";
 import { rowsToDayInputs } from "./store-mapping";
 
-const SCANS = "c:/Users/USER/OneDrive/Desktop/TungLam/Exports from Million/CHECKTIME_InOutReportAll.xlsx";
+const SCANS = fileURLToPath(
+  new URL("../../../data/CHECKTIME_InOutReportAll.xlsx", import.meta.url),
+);
 const KEYIN =
-  "c:/Users/USER/OneDrive/Desktop/TungLam/Reference/MillionPayroll_KeyIn_June2026.xlsx";
+  fileURLToPath(
+    new URL("../../../reference/MillionPayroll_KeyIn_June2026.xlsx", import.meta.url),
+  );
 
 /** October 2025 is the month with the most scan data in the trial export. */
 const MONTH = "2025-10";

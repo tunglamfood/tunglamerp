@@ -61,8 +61,11 @@ Open **Monthly pay** and work down the four steps:
 1. **Pick the month.** Anything already uploaded for it opens by itself.
 2. **Add the scanner file.** In CheckTime, run the In Out Report for the month
    and save it. Drag it in, or press Choose file.
-3. **Check the days it could not read.** Each one has a suggested time already
-   filled in — accept it, correct it, or mark the day absent.
+3. **Check the days it could not read.** Someone who scanned once keeps the
+   end they did scan; the other end is left blank and shaded, because batches
+   finish at different times and a guess would be wrong for most of them. Type
+   the missing time in, or mark the day absent. Save stays greyed out until
+   both ends are there.
 4. **Download.** Unlocks once step 3 is empty. Bring the file into Million.
 
 **Workers** holds everyone on the payroll. Search by name, code or scanner
@@ -73,7 +76,7 @@ on the scanner. Click any row to edit them in the side panel.
 
 ```bash
 cd app
-npm test        # 358 tests, including all 85 workers of June 2026
+npm test        # 425 tests, including all 85 workers of June 2026
 ```
 
 ## Where things are
@@ -87,5 +90,17 @@ npm test        # 358 tests, including all 85 workers of June 2026
 | Writing the Million file | `app/src/lib/million-writer.ts` |
 | Public holidays | `app/src/lib/holidays.ts` |
 | The design and the reasoning | `docs/superpowers/specs/` |
+| The spreadsheets out of Million | `data/` |
+| What the rules were built from | `reference/` |
 
-The old app is untouched at `../TungLamHRSystem/hr-app` as a backup.
+Nothing outside this folder is needed. `data/` and `reference/` are found by a
+path relative to the project, so the whole folder can be moved or copied to
+another computer and still work.
+
+The old card-scanning app is no longer kept as a folder. Its full history is on
+the `old-card-scanner-app` branch of this repository:
+
+```bash
+git switch old-card-scanner-app     # look at it
+git switch main                     # come back
+```

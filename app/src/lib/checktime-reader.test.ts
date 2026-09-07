@@ -1,9 +1,12 @@
 import { describe, it, expect } from "vitest";
 import * as XLSX from "xlsx";
 import fs from "node:fs";
+import { fileURLToPath } from "node:url";
 import { readCheckTime } from "./checktime-reader";
 
-const REAL = "c:/Users/USER/OneDrive/Desktop/TungLam/Exports from Million/CHECKTIME_InOutReportAll.xlsx";
+const REAL = fileURLToPath(
+  new URL("../../../data/CHECKTIME_InOutReportAll.xlsx", import.meta.url),
+);
 
 /** Build a miniature CheckTime export with the same shape as the real one. */
 function fakeExport(dataRows: unknown[][]): Buffer {

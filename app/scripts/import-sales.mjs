@@ -4,9 +4,10 @@
 // Run it with the app already running:  npm run dev,  then  node scripts/import-sales.mjs
 import * as XLSX from "xlsx";
 import fs from "node:fs";
+import { fileURLToPath } from "node:url";
 
 const BASE = process.env.BASE_URL ?? "http://localhost:3000";
-const DIR = "c:/Users/USER/OneDrive/Desktop/TungLam/Exports from Million/";
+const DIR = fileURLToPath(new URL("../../data/", import.meta.url));
 const CUSTOMERS = DIR + "IT_CUSTOMER LIST.xlsx";
 const PRODUCTS = DIR + "IT_ITEM DESCRIPTION LIST.xlsx";
 const PENANG = DIR + "IT_PRODUCT_COST_PENANG_CLEANED.xlsx";

@@ -1,11 +1,14 @@
 import { describe, it, expect } from "vitest";
 import * as XLSX from "xlsx";
 import fs from "node:fs";
+import { fileURLToPath } from "node:url";
 import { buildMillionRows, writeMillionXls } from "./million-writer";
 import { MILLION_COLUMNS, COL } from "./million-columns";
 import { MonthTotals, PayExtras } from "./types";
 
-const TEMPLATE = "c:/Users/USER/OneDrive/Desktop/TungLam/Exports from Million/MILLION_IMPORT_JULY_2026_ TEMPLATE.xls";
+const TEMPLATE = fileURLToPath(
+  new URL("../../../data/MILLION_IMPORT_JULY_2026_ TEMPLATE.xls", import.meta.url),
+);
 
 const totals: MonthTotals = {
   code: "B08",
