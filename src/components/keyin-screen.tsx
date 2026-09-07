@@ -86,6 +86,9 @@ export function KeyInScreen({
   const [saving, setSaving] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<string | null>(null);
+  // Typing that has not reached the database yet. Moving to another worker
+  // reloads the grid, so this is what says a save has to happen first.
+  const [dirty, setDirty] = useState(false);
   // Both columns are addressable, so the caret can go anywhere in the grid.
   const startRefs = useRef<(HTMLInputElement | null)[]>([]);
   const finishRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -123,6 +126,7 @@ export function KeyInScreen({
       setLoading(true);
       setProblem(null);
       setSavedAt(null);
+      setDirty(false);
       const fresh = blankRows(key);
       try {
         const res = await fetch(`/api/month/keyin?month=${key}&code=${encodeURIComponent(who)}`);
@@ -162,6 +166,7 @@ export function KeyInScreen({
   function setRow(i: number, patch: Partial<Row>) {
     setRows((all) => all.map((r, x) => (x === i ? { ...r, ...patch } : r)));
     setSavedAt(null);
+    setDirty(true);
   }
 
   /** Fill every empty start with the usual one — the whole point of the screen. */
@@ -178,9 +183,11 @@ export function KeyInScreen({
       ),
     );
     setSavedAt(null);
+    setDirty(true);
   }
 
-  async function save() {
+  /** True only if the month reached the database. */
+  async function save(): Promise<boolean> {
     setSaving(true);
     setProblem(null);
     try {
@@ -201,11 +208,39 @@ export function KeyInScreen({
       const body = await res.json();
       if (!res.ok) throw new Error(body.error ?? "Could not save.");
       setSavedAt(new Date().toLocaleTimeString("en-MY", { hour: "2-digit", minute: "2-digit" }));
+      setDirty(false);
+      return true;
     } catch (e) {
       setProblem((e as Error).message);
+      return false;
     } finally {
       setSaving(false);
     }
+  }
+
+  /** Typed but not a time — worth showing at once rather than at save. */
+  const looksWrong = (v: string) => v.trim() !== "" && readTime(v) === null;
+
+  /**
+   * Rewrite what was typed as a proper clock time, once the caret leaves.
+   *
+   * Done on the way out rather than on every keystroke: reformatting mid-typing
+   * fights the caret, and "7" would become "07:00" before the 30 was reached.
+   * Anything that is not a time is left exactly as typed, in red, so the office
+   * can see what it actually wrote.
+   */
+  function tidy(i: number, col: Col) {
+    setRows((all) =>
+      all.map((r, x) => {
+        if (x !== i) return r;
+        const raw = col === "first" ? r.first : r.last;
+        const min = readTime(raw);
+        if (min == null) return r;
+        const clock = asClock(min);
+        if (clock === raw) return r;
+        return col === "first" ? { ...r, first: clock } : { ...r, last: clock };
+      }),
+    );
   }
 
   type Col = "first" | "last";
@@ -290,6 +325,28 @@ export function KeyInScreen({
 
   const cell = "w-[74px] rounded-lg border px-2 py-1.5 text-sm nums text-center";
 
+  const at = workers.findIndex((w) => w.code === code);
+
+  /**
+   * Step to the worker before or after this one, wrapping at either end.
+   *
+   * Switching reloads the grid from the database, so anything typed and not
+   * saved would be gone. Rather than warn about that on every click, the month
+   * is saved first and the move waits for it. If the save fails the move is
+   * abandoned, leaving the typing on screen with the reason above it — losing a
+   * keyed month to a failed save would be the worst outcome of the three.
+   */
+  async function stepWorker(dir: 1 | -1) {
+    if (workers.length < 2 || at < 0 || saving) return;
+    if (dirty && !(await save())) return;
+    const n = (at + dir + workers.length) % workers.length;
+    setCode(workers[n].code);
+  }
+
+  const stepBtn =
+    "rounded-lg px-2.5 py-1.5 text-[13px] font-semibold text-accent transition " +
+    "hover:bg-accent-soft disabled:cursor-not-allowed disabled:text-faint disabled:hover:bg-transparent";
+
   return (
     <>
       <div className="mb-4 flex flex-wrap items-end gap-3">
@@ -327,9 +384,16 @@ export function KeyInScreen({
           </div>
           <div className="flex items-stretch gap-2">
             <input
-              className={`${inputCls} nums h-[42px] w-[96px] py-0 text-center`}
+              className={`${inputCls} nums h-[42px] w-[96px] py-0 text-center ${
+                looksWrong(usualStart) ? "border-bad bg-bad-soft" : ""
+              }`}
               value={usualStart}
               onChange={(e) => setUsualStart(e.target.value)}
+              onFocus={(e) => e.currentTarget.select()}
+              onBlur={() => {
+                const min = readTime(usualStart);
+                if (min != null) setUsualStart(asClock(min));
+              }}
               placeholder="07:00"
             />
             <Btn kind="ghost" onClick={fillStarts} className="h-[42px] whitespace-nowrap">
@@ -351,9 +415,12 @@ export function KeyInScreen({
           the finish times. Both columns can be typed in freely. Move with the{" "}
           <strong>arrow keys</strong> — up and down walk the column and skip absent days, left
           and right cross between start and finish. <strong>Enter</strong> drops to the next day,
-          same as the down arrow. Times can be typed as <strong>1930</strong> or{" "}
-          <strong>19:30</strong>. A finish before the start means the shift ran past midnight,
-          which is counted properly.
+          same as the down arrow. Times can be typed the short way —{" "}
+          <strong>730</strong>, <strong>7.30</strong> or <strong>19:30</strong> — and are
+          written out as <strong>07:30</strong> when you move on. Anything that is not a time
+          turns red where you typed it. A finish before the start means the shift ran past midnight,
+          which is counted properly. <strong>Previous</strong> and <strong>Next</strong> save this
+          worker before moving on, so nothing typed is lost.
         </Notice>
       </div>
 
@@ -401,12 +468,19 @@ export function KeyInScreen({
                             ref={(el) => {
                               startRefs.current[i] = el;
                             }}
-                            className={`${cell} ${r.scanned ? "border-good bg-good-soft" : "border-line"}`}
+                            className={`${cell} ${
+                              looksWrong(r.first)
+                                ? "border-bad bg-bad-soft"
+                                : r.scanned
+                                  ? "border-good bg-good-soft"
+                                  : "border-line"
+                            }`}
                             value={r.first}
                             disabled={r.absent}
                             onChange={(e) => setRow(i, { first: e.target.value })}
                             onKeyDown={(e) => onCellKey(e, i, "first")}
                             onFocus={(e) => e.currentTarget.select()}
+                            onBlur={() => tidy(i, "first")}
                             placeholder={rest ? "" : "07:00"}
                           />
                         </td>
@@ -415,12 +489,19 @@ export function KeyInScreen({
                             ref={(el) => {
                               finishRefs.current[i] = el;
                             }}
-                            className={`${cell} ${r.scanned ? "border-good bg-good-soft" : "border-line"}`}
+                            className={`${cell} ${
+                              looksWrong(r.last)
+                                ? "border-bad bg-bad-soft"
+                                : r.scanned
+                                  ? "border-good bg-good-soft"
+                                  : "border-line"
+                            }`}
                             value={r.last}
                             disabled={r.absent}
                             onChange={(e) => setRow(i, { last: e.target.value })}
                             onKeyDown={(e) => onCellKey(e, i, "last")}
                             onFocus={(e) => e.currentTarget.select()}
+                            onBlur={() => tidy(i, "last")}
                             placeholder={rest ? "" : "19:00"}
                           />
                         </td>
@@ -513,19 +594,29 @@ export function KeyInScreen({
             </p>
           </Card>
 
-          <div className="mt-3 flex items-center gap-2">
-            <Chip>{workers.length} workers</Chip>
+          <div className="mt-3 flex items-center justify-between gap-1">
             <button
-              onClick={() => {
-                const i = workers.findIndex((w) => w.code === code);
-                const next = workers[(i + 1) % workers.length];
-                if (next) setCode(next.code);
-              }}
-              className="text-[13px] font-semibold text-accent underline underline-offset-2"
+              onClick={() => void stepWorker(-1)}
+              disabled={workers.length < 2 || saving || loading}
+              className={stepBtn}
+              title="The worker before this one — saves first"
             >
-              Next worker &rarr;
+              &larr; Previous
+            </button>
+            <Chip>{at >= 0 ? `${at + 1} of ${workers.length}` : `${workers.length} workers`}</Chip>
+            <button
+              onClick={() => void stepWorker(1)}
+              disabled={workers.length < 2 || saving || loading}
+              className={stepBtn}
+              title="The worker after this one — saves first"
+            >
+              Next &rarr;
             </button>
           </div>
+
+          <p className="mt-2 text-center text-[11px] font-semibold text-warn">
+            {saving ? "Saving…" : dirty ? "Not saved yet — moving on will save it" : "\u00a0"}
+          </p>
         </div>
       </div>
     </>
