@@ -86,7 +86,9 @@ export function KeyInScreen({
   const [saving, setSaving] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<string | null>(null);
-  const outRefs = useRef<(HTMLInputElement | null)[]>([]);
+  // Both columns are addressable, so the caret can go anywhere in the grid.
+  const startRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const finishRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   const worker = workers.find((w) => w.code === code);
 
@@ -206,15 +208,59 @@ export function KeyInScreen({
     }
   }
 
-  /** Enter moves down the finish column; that is how a month gets keyed. */
-  function onFinishKey(e: React.KeyboardEvent, i: number) {
-    if (e.key !== "Enter") return;
-    e.preventDefault();
-    for (let n = i + 1; n < rows.length; n++) {
+  type Col = "first" | "last";
+
+  /** Put the caret in a cell and select what is there, ready to be typed over. */
+  function go(i: number, col: Col) {
+    const box = (col === "first" ? startRefs : finishRefs).current[i];
+    if (!box) return false;
+    box.focus();
+    box.select();
+    return true;
+  }
+
+  /** The nearest row above or below that can actually be typed into. */
+  function step(from: number, dir: 1 | -1, col: Col) {
+    for (let n = from + dir; n >= 0 && n < rows.length; n += dir) {
       if (rows[n].absent) continue;
-      outRefs.current[n]?.focus();
-      outRefs.current[n]?.select();
+      if (go(n, col)) return true;
+    }
+    return false;
+  }
+
+  /**
+   * Moving around the grid without reaching for the mouse.
+   *
+   * Up and down walk the column, skipping days marked absent. Enter does the
+   * same as down, because that is the habit from a spreadsheet. Left and right
+   * cross between start and finish, but only once the caret is already at the
+   * edge of the text — otherwise they would stop you editing the middle of a
+   * time you had mistyped.
+   */
+  function onCellKey(e: React.KeyboardEvent<HTMLInputElement>, i: number, col: Col) {
+    const box = e.currentTarget;
+    const atStart = box.selectionStart === 0 && box.selectionEnd === 0;
+    const atEnd =
+      box.selectionStart === box.value.length && box.selectionEnd === box.value.length;
+
+    if (e.key === "Enter" || e.key === "ArrowDown") {
+      e.preventDefault();
+      step(i, 1, col);
       return;
+    }
+    if (e.key === "ArrowUp") {
+      e.preventDefault();
+      step(i, -1, col);
+      return;
+    }
+    if (e.key === "ArrowRight" && col === "first" && atEnd) {
+      e.preventDefault();
+      go(i, "last");
+      return;
+    }
+    if (e.key === "ArrowLeft" && col === "last" && atStart) {
+      e.preventDefault();
+      go(i, "first");
     }
   }
 
@@ -279,14 +325,14 @@ export function KeyInScreen({
           <div className="mb-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-faint">
             Usual start
           </div>
-          <div className="flex gap-2">
+          <div className="flex items-stretch gap-2">
             <input
-              className={`${inputCls} nums w-[92px] text-center`}
+              className={`${inputCls} nums h-[42px] w-[96px] py-0 text-center`}
               value={usualStart}
               onChange={(e) => setUsualStart(e.target.value)}
               placeholder="07:00"
             />
-            <Btn kind="ghost" onClick={fillStarts}>
+            <Btn kind="ghost" onClick={fillStarts} className="h-[42px] whitespace-nowrap">
               Fill starts
             </Btn>
           </div>
@@ -301,10 +347,13 @@ export function KeyInScreen({
 
       <div className="mb-4">
         <Notice tone="info">
-          Press <strong>Fill starts</strong> once, then type only the finish time for each day and
-          press <strong>Enter</strong> to drop to the next. Times can be typed as{" "}
-          <strong>1930</strong> or <strong>19:30</strong>. A finish before the start means the
-          shift ran past midnight, which is counted properly.
+          Press <strong>Fill starts</strong> to put the usual start on every empty day, then type
+          the finish times. Both columns can be typed in freely. Move with the{" "}
+          <strong>arrow keys</strong> — up and down walk the column and skip absent days, left
+          and right cross between start and finish. <strong>Enter</strong> drops to the next day,
+          same as the down arrow. Times can be typed as <strong>1930</strong> or{" "}
+          <strong>19:30</strong>. A finish before the start means the shift ran past midnight,
+          which is counted properly.
         </Notice>
       </div>
 
@@ -349,23 +398,29 @@ export function KeyInScreen({
                         </td>
                         <td className="px-3 py-1.5">
                           <input
+                            ref={(el) => {
+                              startRefs.current[i] = el;
+                            }}
                             className={`${cell} ${r.scanned ? "border-good bg-good-soft" : "border-line"}`}
                             value={r.first}
                             disabled={r.absent}
                             onChange={(e) => setRow(i, { first: e.target.value })}
+                            onKeyDown={(e) => onCellKey(e, i, "first")}
+                            onFocus={(e) => e.currentTarget.select()}
                             placeholder={rest ? "" : "07:00"}
                           />
                         </td>
                         <td className="px-3 py-1.5">
                           <input
                             ref={(el) => {
-                              outRefs.current[i] = el;
+                              finishRefs.current[i] = el;
                             }}
                             className={`${cell} ${r.scanned ? "border-good bg-good-soft" : "border-line"}`}
                             value={r.last}
                             disabled={r.absent}
                             onChange={(e) => setRow(i, { last: e.target.value })}
-                            onKeyDown={(e) => onFinishKey(e, i)}
+                            onKeyDown={(e) => onCellKey(e, i, "last")}
+                            onFocus={(e) => e.currentTarget.select()}
                             placeholder={rest ? "" : "19:00"}
                           />
                         </td>
