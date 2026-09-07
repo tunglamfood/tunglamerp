@@ -25,6 +25,7 @@ export async function POST(request: Request) {
       code,
       name,
       shortName: str(b.shortName),
+      groupCode: strOrNull(b.groupCode),
       state: tidyState(str(b.state)),
       address: strOrNull(b.address),
       contact: strOrNull(b.contact),

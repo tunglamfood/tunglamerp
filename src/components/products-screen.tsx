@@ -186,7 +186,11 @@ export function ProductsScreen({
                     <tbody>
                       {mine.slice(0, 12).map((row) => (
                         <tr key={row.id} className="border-b border-line last:border-0">
-                          <td className="px-3 py-2">{nameOf.get(row.customerCode) ?? row.customerCode}</td>
+                          <td className="px-3 py-2">
+                        {row.groupCode
+                          ? `${row.groupCode} (whole group)`
+                          : (nameOf.get(row.customerCode ?? "") ?? row.customerCode)}
+                      </td>
                           <td className="nums px-3 py-2 text-right font-semibold">{money(row.price)}</td>
                           <td className="nums px-3 py-2 text-right text-xs text-faint">
                             from {row.effectiveFrom}

@@ -38,7 +38,7 @@ export function OrdersScreen({
     if (status !== "all" && o.status !== status) return false;
     const q = search.trim().toLowerCase();
     if (!q) return true;
-    const c = customerOf.get(o.customerCode);
+    const c = customerOf.get(o.customerCode ?? "");
     return `${o.orderNo} ${o.theirRef ?? ""} ${c?.name ?? ""} ${c?.shortName ?? ""}`
       .toLowerCase().includes(q);
   });
@@ -61,7 +61,7 @@ export function OrdersScreen({
   /** Picking a product fills in its unit and this dealer's own price. */
   function fillLine(order: SalesOrder, index: number, itemCode: string): SalesOrder {
     const item = productOf.get(itemCode);
-    const found = priceFor(order.customerCode, item, prices, order.orderDate);
+    const found = priceFor(order.customerCode ?? "", item, prices, order.orderDate);
     const lines = [...order.lines];
     lines[index] = {
       ...lines[index],
@@ -78,7 +78,7 @@ export function OrdersScreen({
       ...order,
       lines: order.lines.map((l) => {
         if (!l.itemCode) return l;
-        const found = priceFor(order.customerCode, productOf.get(l.itemCode), prices, order.orderDate);
+        const found = priceFor(order.customerCode ?? "", productOf.get(l.itemCode), prices, order.orderDate);
         return { ...l, price: found.price };
       }),
     };
@@ -146,7 +146,7 @@ export function OrdersScreen({
             </thead>
             <tbody>
               {shown.map((o) => {
-                const c = customerOf.get(o.customerCode);
+                const c = customerOf.get(o.customerCode ?? "");
                 const s = STATUS.find((x) => x.value === o.status)!;
                 return (
                   <tr key={o.orderNo}
@@ -184,7 +184,7 @@ export function OrdersScreen({
       <Drawer
         open={editing !== null}
         title={editing?.orderNo ?? ""}
-        sub={editing ? customerOf.get(editing.customerCode)?.name : undefined}
+        sub={editing ? customerOf.get(editing.customerCode ?? "")?.name : undefined}
         onClose={() => setEditing(null)}
         footer={
           <>
@@ -202,7 +202,7 @@ export function OrdersScreen({
           <div className="space-y-5">
             <Field label="Customer" hint="Prices below follow whoever is chosen here.">
               <Select
-                value={editing.customerCode}
+                value={editing.customerCode ?? ""}
                 searchable
                 placeholder="Choose a customer"
                 onChange={(v) => setEditing(reprice({ ...editing, customerCode: v }))}
@@ -250,7 +250,7 @@ export function OrdersScreen({
               <div className="space-y-3">
                 {editing.lines.map((line, i) => {
                   const item = productOf.get(line.itemCode);
-                  const found = priceFor(editing.customerCode, item, prices, editing.orderDate);
+                  const found = priceFor(editing.customerCode ?? "", item, prices, editing.orderDate);
                   return (
                     <div key={i} className="rounded-xl border border-line p-3">
                       <div className="mb-2 flex items-start gap-2">

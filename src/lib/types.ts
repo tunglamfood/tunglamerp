@@ -157,6 +157,19 @@ export interface WorkerNote {
 }
 /* ── Sales ────────────────────────────────────────────────────────────────── */
 
+/**
+ * Outlets that order together on one sheet and pay one price list.
+ *
+ * Million knows every outlet as its own debtor, because each is invoiced
+ * separately. The group exists only above that: it is who the order form is
+ * addressed to, and who the prices belong to.
+ */
+export interface CustomerGroup {
+  code: string;
+  name: string;
+  active: boolean;
+}
+
 export interface Customer {
   code: string; // Million debtor code, '3030/0003'
   name: string;
@@ -168,6 +181,8 @@ export interface Customer {
   attn: string | null;
   incomeTaxNo: string | null;
   active: boolean;
+  /** The group this outlet belongs to, if it is one of several. */
+  groupCode?: string | null;
 }
 
 export interface Product {
@@ -186,7 +201,9 @@ export interface Product {
 /** One dealer's price for one product, from a date. */
 export interface PriceRow {
   id?: number;
-  customerCode: string;
+  /** Exactly one of these is set: a price is one outlet's or a whole group's. */
+  customerCode: string | null;
+  groupCode?: string | null;
   itemCode: string;
   price: number;
   effectiveFrom: string;
@@ -203,16 +220,37 @@ export interface OrderLine {
   uom: string;
   price: number;
   note: string | null;
+  /** Which outlet's column this quantity sits in. Empty on a single-outlet sheet. */
+  outletCode?: string | null;
+}
+
+/**
+ * The batch an item was packed from, written on the sheet after packing.
+ *
+ * One per item for the whole order: an item is made as one run and split
+ * between the outlets afterwards, so the run is what a recall has to trace.
+ * Nothing counts as recorded until somebody has confirmed it — which is what
+ * keeps a misread photograph out of the traceability trail.
+ */
+export interface OrderBatch {
+  itemCode: string;
+  batchCode: string;
+  source: "typed" | "photo";
+  confirmed: boolean;
+  notedAt?: string;
 }
 
 export interface SalesOrder {
   id?: number;
   orderNo: string;
-  customerCode: string;
+  /** Exactly one of these is set: the sheet is one outlet's or a group's. */
+  customerCode: string | null;
+  groupCode?: string | null;
   orderDate: string;
   deliverOn: string | null;
   status: OrderStatus;
   theirRef: string | null;
   note: string | null;
   lines: OrderLine[];
+  batches?: OrderBatch[];
 }

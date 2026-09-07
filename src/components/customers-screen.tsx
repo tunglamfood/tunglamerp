@@ -80,7 +80,7 @@ export function CustomersScreen({ customers }: { customers: Customer[] }) {
       ]}
       newRow={() => ({
         code: "", name: "", shortName: "", state: "", address: null, contact: null,
-        email: null, attn: null, incomeTaxNo: null, active: true,
+        email: null, attn: null, incomeTaxNo: null, active: true, groupCode: null,
       })}
       editTitle={(c, isNew) => (isNew ? "New customer" : c.code)}
       editSub={(c, isNew) => (isNew ? "Add a dealer or a shop" : c.name)}
