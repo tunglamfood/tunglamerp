@@ -78,7 +78,10 @@ describe("buildMonthView", () => {
     const single = view.flags.filter((f) => f.kind === "SINGLE_PUNCH");
     expect(single).toHaveLength(1);
     expect(single[0].date).toBe("2026-06-02");
-    expect(single[0].suggestLast).toBe("19:00");
+    // The scanned end is kept, the missing end is left empty — batches finish
+    // at different times, so a guess would be wrong for most of them.
+    expect(single[0].suggestFirst).toBe("07:06");
+    expect(single[0].suggestLast).toBe("");
   });
 
   it("keeps flags and totals describing the same days", () => {

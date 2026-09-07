@@ -398,7 +398,10 @@ function FlagRow({
 }) {
   const [first, setFirst] = useState(flag.suggestFirst ?? "");
   const [last, setLast] = useState(flag.suggestLast ?? "");
-  const cell = "w-[76px] rounded-lg border border-line px-2 py-1.5 text-sm nums";
+  const cell = "w-[76px] rounded-lg border px-2 py-1.5 text-sm nums";
+  // Nothing is guessed for the office, so nothing can be accepted until both
+  // ends of the day are actually there.
+  const ready = first.trim() !== "" && last.trim() !== "";
 
   return (
     <tr className="border-b border-line align-top last:border-0">
@@ -407,15 +410,26 @@ function FlagRow({
       <td className="nums px-3 py-2.5 text-mute">{flag.punches.join(", ") || "nothing"}</td>
       <td className="max-w-xs px-3 py-2.5 text-[13px] text-mute">{flag.message}</td>
       <td className="px-3 py-2.5">
-        <input className={cell} value={first} onChange={(e) => setFirst(e.target.value)} placeholder="07:00" />
+        <input
+          className={`${cell} ${first.trim() ? "border-line" : "border-warn-line bg-warn-soft"}`}
+          value={first}
+          onChange={(e) => setFirst(e.target.value)}
+          placeholder="start"
+        />
       </td>
       <td className="px-3 py-2.5">
-        <input className={cell} value={last} onChange={(e) => setLast(e.target.value)} placeholder="19:00" />
+        <input
+          className={`${cell} ${last.trim() ? "border-line" : "border-warn-line bg-warn-soft"}`}
+          value={last}
+          onChange={(e) => setLast(e.target.value)}
+          placeholder="finish"
+        />
       </td>
       <td className="whitespace-nowrap px-3 py-2.5 text-right">
-        <Btn size="sm" disabled={busy}
+        <Btn size="sm" disabled={busy || !ready}
+          title={ready ? undefined : "Both times are needed"}
           onClick={() => void onFix({ code: flag.code!, date: flag.date!, firstOverride: first, lastOverride: last })}>
-          Accept
+          Save
         </Btn>{" "}
         <Btn size="sm" kind="ghost" disabled={busy}
           onClick={() => void onFix({ code: flag.code!, date: flag.date!, markedAbsent: true })}>

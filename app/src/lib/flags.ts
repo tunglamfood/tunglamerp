@@ -8,27 +8,27 @@ import { parseTime } from "./time";
 
 export const TOO_LONG_MIN = 16 * 60;
 export const TOO_SHORT_MIN = 2 * 60;
-/** Pre-filled when someone forgot to scan in or out. */
-export const DEFAULT_START = "07:00";
-export const DEFAULT_FINISH = "19:00";
 /**
  * A lone punch this late in the day is a clock-OUT, not a clock-in — nobody
  * starts a shift at half past eight in the evening. In the trial data 113 of
- * the 244 single-punch days fall here, and treating them as arrivals would put
+ * the 244 single-punch days fall here, and reading them as arrivals would put
  * the end of the day before its beginning.
  */
 export const LONE_PUNCH_IS_FINISH_AFTER_MIN = 14 * 60;
 
-/** Which way round to read the one scan the worker did make. */
-export function suggestFor(
-  punch: string,
-  defaultStart: string,
-  defaultFinish: string,
-): { first: string; last: string } {
+/**
+ * Which end of the day the one scan belongs to — and nothing more.
+ *
+ * The missing half is deliberately left empty. Different batches finish at
+ * different times, so any guess would be right for one batch and quietly wrong
+ * for the others, and a wrong time that looks filled in is worse than an empty
+ * box that has to be answered.
+ */
+export function suggestFor(punch: string): { first: string; last: string } {
   const min = parseTime(punch);
   return min != null && min >= LONE_PUNCH_IS_FINISH_AFTER_MIN
-    ? { first: defaultStart, last: punch }
-    : { first: punch, last: defaultFinish };
+    ? { first: "", last: punch }
+    : { first: punch, last: "" };
 }
 
 function flag(partial: Omit<Flag, "punches"> & { punches?: string[] }): Flag {
@@ -39,8 +39,6 @@ export function flagsForWorker(
   worker: Worker,
   days: DayResult[],
   byDate: Map<string, DayInput>,
-  defaultFinish: string = DEFAULT_FINISH,
-  defaultStart: string = DEFAULT_START,
 ): Flag[] {
   const out: Flag[] = [];
 
@@ -96,7 +94,7 @@ export function flagsForWorker(
     const punches = input?.punches ?? [];
     if (punches.length === 0 && !everWorked) continue; // covered by NEVER_SCANNED
     if (punches.length === 1) {
-      const suggestion = suggestFor(punches[0], defaultStart, defaultFinish);
+      const suggestion = suggestFor(punches[0]);
       const missing = suggestion.first === punches[0] ? "finish" : "start";
       out.push(
         flag({
@@ -107,7 +105,9 @@ export function flagsForWorker(
           punches,
           suggestFirst: suggestion.first,
           suggestLast: suggestion.last,
-          message: `${worker.name} scanned once on this day, so we cannot tell how long they worked. Accept the suggested ${missing} time or correct it.`,
+          message:
+            `${worker.name} scanned once on this day, at ${punches[0]}, so the ${missing} ` +
+            `time is missing. Type it in, or mark the day absent.`,
         }),
       );
     } else {

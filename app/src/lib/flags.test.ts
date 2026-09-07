@@ -21,30 +21,34 @@ function run(entries: DayInput[]) {
 }
 
 describe("flagsForWorker", () => {
-  it("treats a lone morning punch as the clock-in and suggests a finish", () => {
+  it("keeps a lone morning punch as the start and leaves the finish empty", () => {
     const flags = run([{ date: "2026-06-02", punches: ["07:06"] }]);
     const f = flags.find((x) => x.date === "2026-06-02")!;
     expect(f.kind).toBe("SINGLE_PUNCH");
     expect(f.suggestFirst).toBe("07:06");
-    expect(f.suggestLast).toBe("19:00");
-    expect(f.message).toContain("scanned once");
+    expect(f.suggestLast).toBe("");
+    expect(f.message).toContain("finish time is missing");
   });
 
-  it("treats a lone evening punch as the clock-out and suggests a start", () => {
-    // Someone whose only scan is at 20:39 did not arrive at 20:39. Suggesting
-    // a finish of 19:00 would put the end of the day before its beginning.
+  it("reads a lone evening punch as the finish and leaves the start empty", () => {
+    // Somebody whose only scan is at 20:39 did not arrive at 20:39.
     const flags = run([{ date: "2026-06-02", punches: ["20:39"] }]);
     const f = flags.find((x) => x.date === "2026-06-02")!;
-    expect(f.suggestFirst).toBe("07:00");
+    expect(f.suggestFirst).toBe("");
     expect(f.suggestLast).toBe("20:39");
+    expect(f.message).toContain("start time is missing");
   });
 
-  it("never suggests a finish that falls before the start", () => {
+  it("never guesses the missing half of the day", () => {
+    // Batches finish at different times, so any guess would be right for one
+    // batch and quietly wrong for the rest. Exactly one end is ever filled.
     for (const punch of ["04:37", "07:06", "12:24", "14:00", "19:08", "21:00", "23:45"]) {
       const f = run([{ date: "2026-06-02", punches: [punch] }]).find(
         (x) => x.date === "2026-06-02",
       )!;
-      expect(f.suggestFirst! < f.suggestLast!, `${punch} suggested ${f.suggestFirst}-${f.suggestLast}`).toBe(true);
+      const filled = [f.suggestFirst, f.suggestLast].filter((v) => v);
+      expect(filled, `${punch} gave ${JSON.stringify([f.suggestFirst, f.suggestLast])}`)
+        .toEqual([punch]);
     }
   });
 
