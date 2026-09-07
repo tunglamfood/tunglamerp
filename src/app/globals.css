@@ -67,8 +67,26 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 .drawer { animation: slide-in .26s cubic-bezier(.22,.72,.28,1) both; }
 .scrim { animation: fade-in .2s ease both; }
 
+/* Placeholders while a screen is being fetched. A slow sheen travelling left to
+   right reads as "coming", where a blinking block reads as "broken". */
+@keyframes sheen { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+.shimmer {
+  background-image: linear-gradient(
+    90deg,
+    var(--color-line) 0%,
+    #eef1f4 40%,
+    #f7f9fa 50%,
+    #eef1f4 60%,
+    var(--color-line) 100%
+  );
+  background-size: 200% 100%;
+  animation: sheen 1.6s linear infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .rise, .drawer, .scrim { animation: none; }
+  /* Still visibly a placeholder, just not moving. */
+  .shimmer { animation: none; background-image: none; background-color: var(--color-line); }
   * { transition-duration: 0.01ms !important; }
 }
 
