@@ -9,6 +9,18 @@ import { listWorkers } from "@/lib/store";
 import { monthLabel } from "@/lib/time";
 import { Notice } from "@/components/ui";
 import { PrintButton } from "@/components/print-button";
+import { PayslipPicker } from "@/components/payslip-picker";
+
+/** The last two years of months, newest first. */
+function recentMonths(from: string, count = 24): string[] {
+  const [y, m] = from.split("-").map(Number);
+  const out: string[] = [];
+  for (let i = 0; i < count; i++) {
+    const d = new Date(y, m - 1 - i, 1);
+    out.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
+  }
+  return out;
+}
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +42,8 @@ export default async function PayslipsPage({
       ? params.month
       : `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   const only = params.code?.trim().toUpperCase();
+  const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  let everyone: { code: string; name: string }[] = [];
 
   let problem: string | null = null;
   let rows: {
@@ -55,6 +69,9 @@ export default async function PayslipsPage({
       listWorkers(),
     ]);
     const person = new Map(workers.map((w) => [w.code, w]));
+    everyone = workers
+      .map((w) => ({ code: w.code, name: w.name }))
+      .sort((a, b) => a.code.localeCompare(b.code));
     rows = view.totals
       .filter((t) => !only || t.code === only)
       .map((t) => ({
@@ -95,7 +112,13 @@ export default async function PayslipsPage({
             choose <strong>Save as PDF</strong> to keep or send them.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <PayslipPicker
+            month={month}
+            months={recentMonths(thisMonth)}
+            code={only ?? ""}
+            workers={everyone}
+          />
           <Link
             href={`/api/reports/payslips?month=${month}${only ? `&code=${only}` : ""}`}
             className="rounded-xl border border-line bg-white px-4 py-2.5 text-sm font-semibold transition hover:bg-gray-50"
@@ -115,8 +138,8 @@ export default async function PayslipsPage({
 
       {rows.length === 0 && (
         <Notice tone="warn">
-          Nothing to print for {monthLabel(month)} yet. Upload the scanner file on Monthly pay
-          first.
+          Nothing to print for {monthLabel(month)} yet. Pick another month above, or upload
+          the scanner file or key the month in on Monthly pay first.
         </Notice>
       )}
 
