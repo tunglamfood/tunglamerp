@@ -40,7 +40,18 @@ The website reaches this database on its server only, with its own secret key na
 - `portal_cancel_order`
 - `sales_next_order_no`, which this system also uses so the two never take the same number
 
-The changes are in `supabase/migrations/20261116_dealer_portal.sql`. The first catalogue and the demo logins are in `supabase/seed/`.
+The changes are in `supabase/migrations/20261116_dealer_portal.sql` and `20261117_portal_phase2_3.sql` (credit terms, on hold, AutoCount export marks, announcements, usual items, SMS codes). The first catalogue and the demo logins are in `supabase/seed/`.
+
+### Credit, announcements and AutoCount
+
+- **Customers → payment terms, credit limit, currency, on hold.**
+  - Terms are shown to the dealer at checkout.
+  - The credit limit is for the office only.
+  - A dealer on hold can still order on the portal, but the order arrives as **On hold (credit)** to confirm or cancel.
+- **Sales → Dealer portal → Announcements.** Notices for the portal's home page, in EN/BM/中文, with optional dates.
+- **Sales orders → Export for AutoCount.** An Excel file of confirmed and delivered orders in a date range, one row per line.
+  - Exported orders are marked so they are never exported twice.
+  - The column names are in `src/lib/autocount.ts`; match them to the AutoCount import template before the first real import.
 
 ## The database
 

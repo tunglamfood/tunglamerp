@@ -1,6 +1,7 @@
 "use client";
 // Sales → Dealer portal: who may sign in at tunglamfood.my/portal, what the
-// catalogue there shows, and which dealers each rep orders for.
+// catalogue there shows, which dealers each rep orders for, and the notices
+// dealers see when they sign in.
 import { useState } from "react";
 import { Btn, Chip, Field, Select, inputCls } from "@/components/ui";
 import { Tabs } from "@/components/tabs";
@@ -8,7 +9,7 @@ import { Column, RecordScreen } from "@/components/record-screen";
 import { post, remove } from "@/lib/api";
 import { showPhone } from "@/lib/phone";
 import { Customer, CustomerGroup, Product } from "@/lib/types";
-import type { PortalAccount, PortalProduct, PortalVariant, SalesRep } from "@/lib/store-portal";
+import type { PortalAccount, PortalAnnouncement, PortalProduct, PortalVariant, SalesRep } from "@/lib/store-portal";
 
 const CATEGORY_LABEL: Record<PortalProduct["category"], string> = {
   tofu: "Tofu", steamboat: "Steamboat", dessert: "Dessert", grocery: "Grocery",
@@ -26,7 +27,7 @@ function YesNo({ value, onChange, yes = "Yes", no = "No" }: { value: boolean; on
 }
 
 export function PortalHub({
-  accounts, reps, products, customers, groups, items,
+  accounts, reps, products, customers, groups, items, announcements,
 }: {
   accounts: PortalAccount[];
   reps: SalesRep[];
@@ -34,6 +35,7 @@ export function PortalHub({
   customers: Customer[];
   groups: CustomerGroup[];
   items: Product[];
+  announcements: PortalAnnouncement[];
 }) {
   return (
     <Tabs
@@ -44,6 +46,8 @@ export function PortalHub({
           panel: <CatalogueScreen products={products} items={items} /> },
         { id: "reps", label: "Sales reps", note: String(reps.length),
           panel: <RepsScreen reps={reps} customers={customers} /> },
+        { id: "notices", label: "Announcements", note: String(announcements.filter(showingNow).length),
+          panel: <AnnouncementsScreen announcements={announcements} /> },
       ]}
     />
   );
@@ -376,6 +380,121 @@ function RepsScreen({ reps, customers }: { reps: SalesRep[]; customers: Customer
           </Field>
           <Field label="Active?">
             <YesNo value={r.active} onChange={(v) => set({ ...r, active: v })} />
+          </Field>
+        </>
+      )}
+    />
+  );
+}
+
+/* ── Announcements ─────────────────────────────────────────────────────────── */
+
+const todayMY = () => new Date(Date.now() + 8 * 3600_000).toISOString().slice(0, 10);
+
+/** On the portal right now: switched on, and today falls inside its dates. */
+function showingNow(a: PortalAnnouncement) {
+  const t = todayMY();
+  return a.active && (!a.startsOn || a.startsOn <= t) && (!a.endsOn || a.endsOn >= t);
+}
+
+function AnnouncementsScreen({ announcements }: { announcements: PortalAnnouncement[] }) {
+  const columns: Column<PortalAnnouncement>[] = [
+    {
+      key: "title", head: "Announcement",
+      cell: (a) => (
+        <div>
+          <div className="font-medium">{a.titleEn}</div>
+          {a.bodyEn && <div className="line-clamp-1 text-xs text-mute">{a.bodyEn}</div>}
+        </div>
+      ),
+    },
+    {
+      key: "dates", head: "Dates",
+      cell: (a) => (
+        <span className="nums text-mute">
+          {a.startsOn || a.endsOn ? `${a.startsOn ?? "now"} → ${a.endsOn ?? "no end"}` : "Always"}
+        </span>
+      ),
+    },
+    {
+      key: "lang", head: "Languages",
+      cell: (a) => <span className="text-mute">{["EN", a.titleMs && "BM", a.titleZh && "中文"].filter(Boolean).join(" · ")}</span>,
+    },
+    {
+      key: "status", head: "Status",
+      cell: (a) => (showingNow(a) ? <Chip tone="teal">Showing</Chip> : a.active ? <Chip tone="amber">Scheduled / ended</Chip> : <Chip>Off</Chip>),
+    },
+  ];
+  const text = (v: string | null) => v ?? "";
+  const orNull = (v: string) => (v.trim() ? v : null);
+  return (
+    <RecordScreen<PortalAnnouncement>
+      title="Announcements"
+      sub="Shown on the portal's home page after a dealer signs in — holiday closures, new products, price changes."
+      rows={announcements}
+      columns={columns}
+      searchIn={(a) => `${a.titleEn} ${a.bodyEn} ${a.titleMs ?? ""} ${a.titleZh ?? ""}`}
+      empty="No announcements yet."
+      addLabel="Add announcement"
+      newRow={() => ({
+        titleEn: "", titleMs: null, titleZh: null, bodyEn: "", bodyMs: null, bodyZh: null,
+        startsOn: todayMY(), endsOn: null, active: true,
+      })}
+      editTitle={(a, isNew) => (isNew ? "New announcement" : a.titleEn)}
+      editSub={(a) => (showingNow(a) ? "Showing on the portal now" : "Not showing right now")}
+      canSave={(a) =>
+        !a.titleEn.trim() ? "An English title is needed"
+          : a.startsOn && a.endsOn && a.endsOn < a.startsOn ? "It ends before it starts"
+          : null
+      }
+      onSave={(a) => post("/api/sales/portal/announcements", a)}
+      onDelete={(a) => remove(`/api/sales/portal/announcements?id=${a.id}`)}
+      form={(a, set) => (
+        <>
+          <Field label="Title (English)">
+            <input className={inputCls} value={a.titleEn} maxLength={120} placeholder="Closed for Chinese New Year"
+              onChange={(e) => set({ ...a, titleEn: e.target.value })} />
+          </Field>
+          <Field label="Message (English)">
+            <textarea className={`${inputCls} h-24`} value={a.bodyEn} maxLength={2000}
+              placeholder="Last delivery 27 Jan. Orders placed during the break go out from 3 Feb."
+              onChange={(e) => set({ ...a, bodyEn: e.target.value })} />
+          </Field>
+          <div className="grid gap-5 sm:grid-cols-2">
+            <Field label="Show from" hint="Empty: straight away.">
+              <input type="date" className={`${inputCls} nums`} value={text(a.startsOn)}
+                onChange={(e) => set({ ...a, startsOn: e.target.value || null })} />
+            </Field>
+            <Field label="Until" hint="Empty: until switched off.">
+              <input type="date" className={`${inputCls} nums`} value={text(a.endsOn)}
+                onChange={(e) => set({ ...a, endsOn: e.target.value || null })} />
+            </Field>
+          </div>
+          <div className="border-t border-line pt-5">
+            <div className="mb-4 text-[11px] font-bold uppercase tracking-[0.1em] text-faint">
+              Other languages — optional, English shows where these are empty
+            </div>
+            <div className="space-y-5">
+              <Field label="Title (Bahasa Melayu)">
+                <input className={inputCls} value={text(a.titleMs)} maxLength={120}
+                  onChange={(e) => set({ ...a, titleMs: orNull(e.target.value) })} />
+              </Field>
+              <Field label="Message (Bahasa Melayu)">
+                <textarea className={`${inputCls} h-20`} value={text(a.bodyMs)} maxLength={2000}
+                  onChange={(e) => set({ ...a, bodyMs: orNull(e.target.value) })} />
+              </Field>
+              <Field label="Title (中文)">
+                <input className={inputCls} value={text(a.titleZh)} maxLength={120}
+                  onChange={(e) => set({ ...a, titleZh: orNull(e.target.value) })} />
+              </Field>
+              <Field label="Message (中文)">
+                <textarea className={`${inputCls} h-20`} value={text(a.bodyZh)} maxLength={2000}
+                  onChange={(e) => set({ ...a, bodyZh: orNull(e.target.value) })} />
+              </Field>
+            </div>
+          </div>
+          <Field label="Switched on?">
+            <YesNo value={a.active} onChange={(v) => set({ ...a, active: v })} />
           </Field>
         </>
       )}

@@ -11,6 +11,7 @@ const today = () => new Date().toISOString().slice(0, 10);
 
 const STATUS: { value: OrderStatus; label: string; tone: "gray" | "blue" | "teal" | "red" | "amber" }[] = [
   { value: "submitted", label: "New from portal", tone: "amber" },
+  { value: "on_hold", label: "On hold (credit)", tone: "red" },
   { value: "draft", label: "Draft", tone: "gray" },
   { value: "confirmed", label: "Confirmed", tone: "blue" },
   { value: "delivered", label: "Delivered", tone: "teal" },
@@ -22,6 +23,8 @@ const statusOf = (value: string) =>
   STATUS.find((x) => x.value === value) ?? { value: value as OrderStatus, label: value, tone: "gray" as const };
 
 const SOURCE: Record<string, string> = { portal: "Portal", rep: "Rep" };
+
+const firstOfMonth = () => `${today().slice(0, 8)}01`;
 
 const blankLine = (): OrderLine => ({ lineNo: 1, itemCode: "", qty: 0, uom: "", price: 0, note: null });
 
@@ -37,6 +40,9 @@ export function OrdersScreen({
   const [problem, setProblem] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<string>("all");
+  const [exporting, setExporting] = useState(false);
+  const [range, setRange] = useState({ from: firstOfMonth(), to: today(), include: false });
+  const [exportNote, setExportNote] = useState<string | null>(null);
 
   const customerOf = useMemo(() => new Map(customers.map((c) => [c.code, c])), [customers]);
   const productOf = useMemo(() => new Map(products.map((p) => [p.itemCode, p])), [products]);
@@ -76,6 +82,7 @@ export function OrdersScreen({
       itemCode,
       uom: item?.uom ?? lines[index].uom,
       price: found.price,
+      priceSource: found.source,
     };
     return { ...order, lines };
   }
@@ -88,7 +95,7 @@ export function OrdersScreen({
         if (!l.itemCode) return l;
         const found = priceFor(order.customerCode ?? "", productOf.get(l.itemCode), prices, order.orderDate,
           customerOf.get(order.customerCode ?? "")?.groupCode);
-        return { ...l, price: found.price };
+        return { ...l, price: found.price, priceSource: found.source };
       }),
     };
   }
@@ -114,17 +121,76 @@ export function OrdersScreen({
     router.refresh();
   }
 
+  /** Downloads the AutoCount file; the server marks those orders as exported. */
+  async function exportForAutoCount() {
+    setBusy(true);
+    setProblem(null);
+    setExportNote(null);
+    try {
+      const form = new FormData();
+      form.set("from", range.from);
+      form.set("to", range.to);
+      if (range.include) form.set("include", "yes");
+      const res = await fetch("/api/sales/export", { method: "POST", body: form });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setProblem(data.error ?? "The export did not work. Please try again.");
+        return;
+      }
+      const blob = await res.blob();
+      const name = /filename="([^"]+)"/.exec(res.headers.get("Content-Disposition") ?? "")?.[1] ?? "autocount.xlsx";
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = name;
+      a.click();
+      URL.revokeObjectURL(url);
+      const count = Number(res.headers.get("X-Orders") ?? 0);
+      const unpriced = Number(res.headers.get("X-Unpriced-Lines") ?? 0);
+      setExportNote(`Saved ${name} with ${count} order${count === 1 ? "" : "s"}. They are now marked as exported.`);
+      if (unpriced > 0) {
+        setProblem(`${unpriced} line${unpriced === 1 ? " has" : "s have"} no price (${res.headers.get("X-Unpriced-Orders")}). `
+          + "Fix the price in AutoCount, or set it here, press \u201cExport it again next time\u201d on the order and export again.");
+      }
+      router.refresh();
+    } catch {
+      setProblem("Could not reach the system. Check your internet and try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function unmarkExported() {
+    if (!editing?.id) return;
+    setBusy(true);
+    const res = await remove(`/api/sales/export?id=${editing.id}`);
+    setBusy(false);
+    if (res.error) return setProblem(res.error);
+    setEditing({ ...editing, exportedAt: null, exportRef: null });
+    router.refresh();
+  }
+
   const total = editing ? orderTotal(editing.lines) : 0;
+  const editingCustomer = editing ? customerOf.get(editing.customerCode ?? "") : undefined;
+  const waiting = orders.filter((o) => (o.status === "confirmed" || o.status === "delivered") && !o.exportedAt).length;
 
   return (
     <>
       <PageHeader
         title="Sales orders"
         sub={<span className="nums">{orders.length} orders</span>}
-        right={<Btn onClick={startNew}>New order</Btn>}
+        right={
+          <div className="flex gap-2">
+            <Btn kind="ghost" onClick={() => { setExporting(true); setProblem(null); setExportNote(null); }}
+              title="Confirmed and delivered orders as an Excel file for AutoCount">
+              Export for AutoCount{waiting > 0 ? ` (${waiting})` : ""}
+            </Btn>
+            <Btn onClick={startNew}>New order</Btn>
+          </div>
+        }
       />
 
-      {problem && !editing && <div className="mb-4"><Notice tone="bad">{problem}</Notice></div>}
+      {problem && !editing && !exporting && <div className="mb-4"><Notice tone="bad">{problem}</Notice></div>}
 
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <input className={`${inputCls} min-w-[220px] flex-1`}
@@ -180,7 +246,12 @@ export function OrdersScreen({
                     <td className="nums px-4 py-2.5 text-right font-semibold">
                       {money(orderTotal(o.lines))}
                     </td>
-                    <td className="px-4 py-2.5"><Chip tone={s.tone}>{s.label}</Chip></td>
+                    <td className="px-4 py-2.5">
+                      <Chip tone={s.tone}>{s.label}</Chip>
+                      {o.exportedAt && (
+                        <span className="ml-1.5 align-middle" title={o.exportRef ?? undefined}><Chip>Exported</Chip></span>
+                      )}
+                    </td>
                   </tr>
                 );
               })}
@@ -199,6 +270,47 @@ export function OrdersScreen({
       </Card>
 
       <Drawer
+        open={exporting}
+        title="Export for AutoCount"
+        sub="Confirmed and delivered orders, one row per line"
+        onClose={() => setExporting(false)}
+        footer={
+          <>
+            <Btn onClick={() => void exportForAutoCount()} disabled={busy}>{busy ? "Preparing…" : "Download Excel"}</Btn>
+            <Btn kind="ghost" onClick={() => setExporting(false)} disabled={busy}>Close</Btn>
+          </>
+        }
+      >
+        <div className="space-y-5">
+          {problem && <Notice tone="bad">{problem}</Notice>}
+          {exportNote && <Notice tone="good">{exportNote}</Notice>}
+          <div className="grid gap-5 sm:grid-cols-2">
+            <Field label="Orders dated from">
+              <input type="date" className={`${inputCls} nums`} value={range.from}
+                onChange={(e) => setRange({ ...range, from: e.target.value })} />
+            </Field>
+            <Field label="To">
+              <input type="date" className={`${inputCls} nums`} value={range.to}
+                onChange={(e) => setRange({ ...range, to: e.target.value })} />
+            </Field>
+          </div>
+          <label className="flex items-start gap-3 text-sm">
+            <input type="checkbox" className="mt-0.5 h-4 w-4" checked={range.include}
+              onChange={(e) => setRange({ ...range, include: e.target.checked })} />
+            <span>
+              <span className="font-semibold">Include orders exported before</span>
+              <span className="block text-mute">Leave this off so nothing goes into AutoCount twice.</span>
+            </span>
+          </label>
+          <p className="text-sm text-mute">
+            Only confirmed and delivered orders go out. Each one is marked as exported, so the next export starts
+            where this one ended. The column names follow AutoCount&apos;s sales order import; if your AutoCount
+            template names them differently, they are listed in one place in <span className="nums">src/lib/autocount.ts</span>.
+          </p>
+        </div>
+      </Drawer>
+
+      <Drawer
         open={editing !== null}
         title={editing?.orderNo ?? ""}
         sub={editing ? customerOf.get(editing.customerCode ?? "")?.name : undefined}
@@ -215,6 +327,27 @@ export function OrdersScreen({
         }
       >
         {problem && <div className="mb-4"><Notice tone="bad">{problem}</Notice></div>}
+        {editingCustomer?.onHold && (
+          <div className="mb-4">
+            <Notice tone="warn">
+              {editingCustomer.shortName || editingCustomer.name} is on hold
+              {editingCustomer.holdReason ? `: ${editingCustomer.holdReason}` : ""}. Their portal orders wait here as
+              &ldquo;On hold&rdquo; until you confirm or cancel them.
+            </Notice>
+          </div>
+        )}
+        {editing?.exportedAt && (
+          <div className="mb-4">
+            <Notice tone="info">
+              Exported to AutoCount on {editing.exportedAt.slice(0, 10)}
+              {editing.exportRef ? ` (${editing.exportRef})` : ""}. Changes made here now also need making in AutoCount.{" "}
+              <button type="button" onClick={() => void unmarkExported()} disabled={busy}
+                className="font-semibold underline underline-offset-2">
+                Export it again next time
+              </button>
+            </Notice>
+          </div>
+        )}
         {editing && (
           <div className="space-y-5">
             <Field label="Customer" hint="Prices below follow whoever is chosen here.">
@@ -324,7 +457,7 @@ export function OrdersScreen({
                           <input className={`${inputCls} nums`} inputMode="decimal" value={String(line.price)}
                             onChange={(e) => {
                               const lines = [...editing.lines];
-                              lines[i] = { ...line, price: Number(e.target.value) || 0 };
+                              lines[i] = { ...line, price: Number(e.target.value) || 0, priceSource: "manual" };
                               setEditing({ ...editing, lines });
                             }} />
                         </label>

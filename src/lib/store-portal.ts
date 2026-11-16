@@ -21,6 +21,21 @@ export interface PortalAccount {
   lastLoginAt?: string | null;
 }
 
+/** A notice on the portal's home page, in the dealer's language where one is written. */
+export interface PortalAnnouncement {
+  id?: number;
+  titleEn: string;
+  titleMs: string | null;
+  titleZh: string | null;
+  bodyEn: string;
+  bodyMs: string | null;
+  bodyZh: string | null;
+  /** Shown from and until these days, inclusive. Empty means no limit. */
+  startsOn: string | null;
+  endsOn: string | null;
+  active: boolean;
+}
+
 export interface SalesRep {
   code: string;
   name: string;
@@ -208,4 +223,40 @@ export async function savePortalProduct(p: PortalProduct): Promise<void> {
 export async function deletePortalProduct(id: number): Promise<void> {
   const { error } = await serverSupabase().from("portal_products").delete().eq("id", id);
   fail("Could not remove that product", error);
+}
+
+/* ── Announcements ─────────────────────────────────────────────────────────── */
+
+type AnnouncementRow = {
+  id: number; title_en: string; title_ms: string | null; title_zh: string | null;
+  body_en: string; body_ms: string | null; body_zh: string | null;
+  starts_on: string | null; ends_on: string | null; active: boolean;
+};
+
+export async function listAnnouncements(): Promise<PortalAnnouncement[]> {
+  const { data, error } = await serverSupabase()
+    .from("portal_announcements").select("*").order("created_at", { ascending: false });
+  fail("Could not load the announcements", error);
+  return ((data ?? []) as AnnouncementRow[]).map((r) => ({
+    id: r.id, titleEn: r.title_en, titleMs: r.title_ms, titleZh: r.title_zh,
+    bodyEn: r.body_en, bodyMs: r.body_ms, bodyZh: r.body_zh,
+    startsOn: r.starts_on, endsOn: r.ends_on, active: r.active,
+  }));
+}
+
+export async function saveAnnouncement(a: PortalAnnouncement): Promise<void> {
+  const row = {
+    title_en: a.titleEn, title_ms: a.titleMs, title_zh: a.titleZh,
+    body_en: a.bodyEn, body_ms: a.bodyMs, body_zh: a.bodyZh,
+    starts_on: a.startsOn, ends_on: a.endsOn, active: a.active,
+    updated_at: new Date().toISOString(),
+  };
+  const db = serverSupabase().from("portal_announcements");
+  const { error } = a.id ? await db.update(row).eq("id", a.id) : await db.insert(row);
+  fail("Could not save the announcement", error);
+}
+
+export async function deleteAnnouncement(id: number): Promise<void> {
+  const { error } = await serverSupabase().from("portal_announcements").delete().eq("id", id);
+  fail("Could not remove that announcement", error);
 }

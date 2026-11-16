@@ -5,7 +5,8 @@ import { OrderLine, OrderStatus } from "@/lib/types";
 
 export const runtime = "nodejs";
 
-const STATUSES: OrderStatus[] = ["submitted", "draft", "confirmed", "delivered", "cancelled"];
+const PRICE_SOURCES = ["dealer", "group", "list", "none", "manual"];
+const STATUSES: OrderStatus[] = ["submitted", "on_hold", "draft", "confirmed", "delivered", "cancelled"];
 
 export async function GET() {
   const stop = await guard();
@@ -37,6 +38,7 @@ export async function POST(request: Request) {
     uom: str(l.uom),
     price: num(l.price),
     note: strOrNull(l.note),
+    priceSource: PRICE_SOURCES.includes(str(l.priceSource)) ? str(l.priceSource) : null,
   }));
   const usable = lines.filter((l) => l.itemCode && l.qty > 0);
   if (usable.length === 0) return problem("An order needs at least one product with a quantity.");

@@ -187,6 +187,13 @@ export interface Customer {
   shortCode?: string | null;
   /** What they are invoiced in. */
   currency?: "MYR" | "SGD";
+  /** "COD", "30 days" — shown to the dealer at checkout. Empty when not set. */
+  paymentTerms?: string;
+  /** For the office's eyes; nothing blocks an order on it. */
+  creditLimit?: number | null;
+  /** Their portal orders arrive as "on_hold" for the office to review. */
+  onHold?: boolean;
+  holdReason?: string | null;
 }
 
 export interface Product {
@@ -214,8 +221,9 @@ export interface PriceRow {
   note: string | null;
 }
 
-/** "submitted" is an order a dealer or rep placed on the portal that the office has not confirmed yet. */
-export type OrderStatus = "submitted" | "draft" | "confirmed" | "delivered" | "cancelled";
+/** "submitted" is an order a dealer or rep placed on the portal that the office has not confirmed yet.
+ *  "on_hold" is the same, from a dealer whose account is on hold for credit. */
+export type OrderStatus = "submitted" | "on_hold" | "draft" | "confirmed" | "delivered" | "cancelled";
 
 /** Where an order was written: here, by a dealer on the portal, or by a rep on the portal. */
 export type OrderSource = "erp" | "portal" | "rep";
@@ -230,6 +238,8 @@ export interface OrderLine {
   note: string | null;
   /** Which outlet's column this quantity sits in. Empty on a single-outlet sheet. */
   outletCode?: string | null;
+  /** Where the price came from: dealer, group or list price, none, or typed by the office ("manual"). */
+  priceSource?: string | null;
 }
 
 /**
@@ -266,4 +276,7 @@ export interface SalesOrder {
   placedBy?: string | null;
   submittedAt?: string | null;
   currency?: string;
+  /** When it went out to AutoCount, and in which file. */
+  exportedAt?: string | null;
+  exportRef?: string | null;
 }

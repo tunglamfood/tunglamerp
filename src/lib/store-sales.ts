@@ -14,6 +14,8 @@ type CustomerRow = {
   address: string | null; contact: string | null; email: string | null;
   attn: string | null; income_taxno: string | null; active: boolean;
   group_code: string | null; short_code: string | null;
+  currency?: string | null; payment_terms?: string | null; credit_limit?: number | string | null;
+  on_hold?: boolean | null; hold_reason?: string | null;
 };
 
 const toCustomer = (r: CustomerRow): Customer => ({
@@ -21,6 +23,11 @@ const toCustomer = (r: CustomerRow): Customer => ({
   address: r.address, contact: r.contact, email: r.email, attn: r.attn,
   incomeTaxNo: r.income_taxno, active: r.active, groupCode: r.group_code ?? null,
   shortCode: r.short_code ?? null,
+  currency: r.currency === "SGD" ? "SGD" : "MYR",
+  paymentTerms: r.payment_terms ?? "",
+  creditLimit: r.credit_limit == null ? null : Number(r.credit_limit),
+  onHold: r.on_hold === true,
+  holdReason: r.hold_reason ?? null,
 });
 
 export async function listCustomers(): Promise<Customer[]> {
@@ -36,6 +43,13 @@ export async function upsertCustomer(c: Customer): Promise<void> {
       code: c.code, name: c.name, short_name: c.shortName, state: c.state,
       address: c.address, contact: c.contact, email: c.email, attn: c.attn,
       income_taxno: c.incomeTaxNo, active: c.active,
+      // Only what the caller knows about: an import or the assistant saving a
+      // customer must not wipe the terms the office set on the screen.
+      ...(c.currency !== undefined && { currency: c.currency }),
+      ...(c.paymentTerms !== undefined && { payment_terms: c.paymentTerms }),
+      ...(c.creditLimit !== undefined && { credit_limit: c.creditLimit }),
+      ...(c.onHold !== undefined && { on_hold: c.onHold }),
+      ...(c.holdReason !== undefined && { hold_reason: c.holdReason }),
       updated_at: new Date().toISOString(),
     },
     { onConflict: "code" },
@@ -149,11 +163,12 @@ type OrderRow = {
   order_date: string; deliver_on: string | null; status: string;
   their_ref: string | null; note: string | null;
   source?: string; placed_by?: string | null; submitted_at?: string | null; currency?: string;
+  exported_at?: string | null; export_ref?: string | null;
 };
 type LineRow = {
   id: number; order_id: number; line_no: number; item_code: string;
   qty: number; uom: string; price: number; note: string | null;
-  outlet_code: string | null;
+  outlet_code: string | null; price_source?: string | null;
 };
 type BatchRow = {
   order_id: number; item_code: string; batch_code: string;
@@ -179,7 +194,7 @@ export async function listOrders(limit = 200): Promise<SalesOrder[]> {
     byOrder.get(l.order_id)!.push({
       id: l.id, lineNo: l.line_no, itemCode: l.item_code,
       qty: Number(l.qty), uom: l.uom, price: Number(l.price), note: l.note,
-      outletCode: l.outlet_code,
+      outletCode: l.outlet_code, priceSource: l.price_source ?? null,
     });
   }
 
@@ -190,6 +205,7 @@ export async function listOrders(limit = 200): Promise<SalesOrder[]> {
     lines: byOrder.get(o.id) ?? [],
     source: (o.source ?? "erp") as SalesOrder["source"], placedBy: o.placed_by ?? null,
     submittedAt: o.submitted_at ?? null, currency: o.currency ?? "MYR",
+    exportedAt: o.exported_at ?? null, exportRef: o.export_ref ?? null,
   }));
 }
 
@@ -249,11 +265,29 @@ export async function saveOrder(order: SalesOrder, actor = "Office"): Promise<nu
         order_id: orderId, line_no: i + 1, item_code: l.itemCode,
         qty: l.qty, uom: l.uom, price: l.price, note: l.note,
         outlet_code: l.outletCode ?? null,
+        // Kept through a save, so the portal's "dealer price / list price" trail survives the office editing the order.
+        price_source: l.priceSource ?? null,
       })),
     );
     fail("Could not save the order lines", ins);
   }
   return orderId;
+}
+
+/** Marks orders as sent to AutoCount, so the next export leaves them out. */
+export async function markExported(ids: number[], ref: string): Promise<void> {
+  if (ids.length === 0) return;
+  const { error } = await serverSupabase()
+    .from("sales_orders").update({ exported_at: new Date().toISOString(), export_ref: ref }).in("id", ids);
+  fail("Could not mark the orders as exported", error);
+}
+
+/** Puts orders back so the next export picks them up again. */
+export async function clearExported(ids: number[]): Promise<void> {
+  if (ids.length === 0) return;
+  const { error } = await serverSupabase()
+    .from("sales_orders").update({ exported_at: null, export_ref: null }).in("id", ids);
+  fail("Could not clear the export mark", error);
 }
 
 export async function deleteOrder(id: number): Promise<void> {
