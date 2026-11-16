@@ -11,6 +11,7 @@ export function normalisePhone(raw: string | null | undefined): string | null {
   if (digits.startsWith("+")) digits = digits.slice(1);
   else if (digits.startsWith("00")) digits = digits.slice(2);
   else if (digits.startsWith("0")) digits = `60${digits.slice(1)}`; // local Malaysian number
+  else if (/^1\d{8,9}$/.test(digits)) digits = `60${digits}`; // Malaysian mobile typed without the 0
   digits = digits.replace(/\D/g, "");
   if (!/^[1-9]\d{7,14}$/.test(digits)) return null;
   return `+${digits}`;

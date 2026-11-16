@@ -3,9 +3,13 @@ import { normalisePhone, showPhone } from "./phone";
 
 describe("normalisePhone", () => {
   it("turns every way a dealer writes their number into one login", () => {
-    for (const raw of ["012-345 6789", "+60 12 345 6789", "60123456789", "0060-12-3456789", "(012) 3456789"]) {
+    for (const raw of ["012-345 6789", "+60 12 345 6789", "60123456789", "0060-12-3456789", "(012) 3456789", "12-345 6789"]) {
       expect(normalisePhone(raw)).toBe("+60123456789");
     }
+  });
+
+  it("reads a Malaysian mobile typed without its 0", () => {
+    expect(normalisePhone("11-0000 0001")).toBe("+601100000001");
   });
 
   it("keeps foreign numbers that carry their country code", () => {
