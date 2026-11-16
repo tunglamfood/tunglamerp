@@ -7,6 +7,7 @@ One system for Tung Lam Food Industries, built one module at a time.
 | **Dashboard** | Opens with what needs you today — expiring permits, prices below cost, a month waiting to be checked. |
 | **HR** | Monthly pay from the scanner file, workers, allowances & advances, leave, permits, hostel & transport, warnings. |
 | **Sales** | Customers, products, what each dealer pays for each product, and sales orders that price themselves. |
+| **Dealer portal** | Who may order online at tunglamfood.my/portal, how the item codes are shown there as products with variants, and which dealers each sales rep orders for. Portal orders arrive in Sales orders as "New from portal". |
 | **Assistant** | An Ask button on every screen. Answers from the system's own data, and can add records. |
 
 ## HR: what it does
@@ -26,6 +27,20 @@ from in the panel: **5.4 mini** by default, which is quicker and cheaper and
 enough for most questions, and **5.2** for something that needs more thought.
 No temperature or other sampling setting is applied — the model's own defaults
 are left alone.
+
+## The dealer portal
+
+Dealers and sales reps order at **tunglamfood.my/portal** (the website repo, `tunglamfood/tunglamwebsite`). Their orders land in this system's own `sales_orders` table, with status `submitted` and source `portal` or `rep`.
+
+The website reaches this database on its server only, with its own secret key named `tunglamfood_portal`. Delete that key in Supabase to cut the website off. It calls these database functions:
+
+- `sales_price_for`: the dealer's price, then their group's price, then the list price
+- `portal_catalog`
+- `portal_place_order`, which prices the order on the server
+- `portal_cancel_order`
+- `sales_next_order_no`, which this system also uses so the two never take the same number
+
+The changes are in `supabase/migrations/20261116_dealer_portal.sql`. The first catalogue and the demo logins are in `supabase/seed/`.
 
 ## The database
 

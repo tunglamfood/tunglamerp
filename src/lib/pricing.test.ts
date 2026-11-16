@@ -18,6 +18,16 @@ describe("priceFor", () => {
     price("3030/0084", "AD120", 0.55, "2026-01-01"),
   ];
 
+  it("falls back to the group price, but a dealer's own price wins", () => {
+    const withGroup: PriceRow[] = [
+      ...rows,
+      { customerCode: null, groupCode: "SRITERNAK", itemCode: "AD120", price: 0.5, effectiveFrom: "2026-01-01", note: null },
+    ];
+    expect(priceFor("3030/0200", item(), withGroup, "2026-06-01", "SRITERNAK")).toMatchObject({ price: 0.5, source: "group" });
+    expect(priceFor("3030/0003", item(), withGroup, "2026-06-01", "SRITERNAK")).toMatchObject({ price: 0.48, source: "dealer" });
+    expect(priceFor("3030/0200", item({ basePrice: 0.6 }), withGroup, "2026-06-01")).toMatchObject({ price: 0.6, source: "list" });
+  });
+
   it("gives each dealer their own price", () => {
     expect(priceFor("3030/0003", item(), rows, "2026-06-01").price).toBe(0.48);
     expect(priceFor("3030/0084", item(), rows, "2026-06-01").price).toBe(0.55);

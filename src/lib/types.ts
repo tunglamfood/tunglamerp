@@ -185,6 +185,8 @@ export interface Customer {
   groupCode?: string | null;
   /** SNW, SMY — the heading this outlet gets on an order form. */
   shortCode?: string | null;
+  /** What they are invoiced in. */
+  currency?: "MYR" | "SGD";
 }
 
 export interface Product {
@@ -212,7 +214,11 @@ export interface PriceRow {
   note: string | null;
 }
 
-export type OrderStatus = "draft" | "confirmed" | "delivered" | "cancelled";
+/** "submitted" is an order a dealer or rep placed on the portal that the office has not confirmed yet. */
+export type OrderStatus = "submitted" | "draft" | "confirmed" | "delivered" | "cancelled";
+
+/** Where an order was written: here, by a dealer on the portal, or by a rep on the portal. */
+export type OrderSource = "erp" | "portal" | "rep";
 
 export interface OrderLine {
   id?: number;
@@ -255,4 +261,9 @@ export interface SalesOrder {
   note: string | null;
   lines: OrderLine[];
   batches?: OrderBatch[];
+  /** Set by the database. Read-only here. */
+  source?: OrderSource;
+  placedBy?: string | null;
+  submittedAt?: string | null;
+  currency?: string;
 }

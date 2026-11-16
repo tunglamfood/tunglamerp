@@ -5,7 +5,7 @@ import { OrderLine, OrderStatus } from "@/lib/types";
 
 export const runtime = "nodejs";
 
-const STATUSES: OrderStatus[] = ["draft", "confirmed", "delivered", "cancelled"];
+const STATUSES: OrderStatus[] = ["submitted", "draft", "confirmed", "delivered", "cancelled"];
 
 export async function GET() {
   const stop = await guard();

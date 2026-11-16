@@ -9,12 +9,19 @@ import { lineAmount, nextOrderNo, orderTotal, priceFor } from "@/lib/pricing";
 const money = (n: number) => n.toLocaleString("en-MY", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const today = () => new Date().toISOString().slice(0, 10);
 
-const STATUS: { value: OrderStatus; label: string; tone: "gray" | "blue" | "teal" | "red" }[] = [
+const STATUS: { value: OrderStatus; label: string; tone: "gray" | "blue" | "teal" | "red" | "amber" }[] = [
+  { value: "submitted", label: "New from portal", tone: "amber" },
   { value: "draft", label: "Draft", tone: "gray" },
   { value: "confirmed", label: "Confirmed", tone: "blue" },
   { value: "delivered", label: "Delivered", tone: "teal" },
   { value: "cancelled", label: "Cancelled", tone: "red" },
 ];
+
+/** A status this screen does not know yet still shows, rather than breaking the list. */
+const statusOf = (value: string) =>
+  STATUS.find((x) => x.value === value) ?? { value: value as OrderStatus, label: value, tone: "gray" as const };
+
+const SOURCE: Record<string, string> = { portal: "Portal", rep: "Rep" };
 
 const blankLine = (): OrderLine => ({ lineNo: 1, itemCode: "", qty: 0, uom: "", price: 0, note: null });
 
@@ -61,7 +68,8 @@ export function OrdersScreen({
   /** Picking a product fills in its unit and this dealer's own price. */
   function fillLine(order: SalesOrder, index: number, itemCode: string): SalesOrder {
     const item = productOf.get(itemCode);
-    const found = priceFor(order.customerCode ?? "", item, prices, order.orderDate);
+    const found = priceFor(order.customerCode ?? "", item, prices, order.orderDate,
+      customerOf.get(order.customerCode ?? "")?.groupCode);
     const lines = [...order.lines];
     lines[index] = {
       ...lines[index],
@@ -78,7 +86,8 @@ export function OrdersScreen({
       ...order,
       lines: order.lines.map((l) => {
         if (!l.itemCode) return l;
-        const found = priceFor(order.customerCode ?? "", productOf.get(l.itemCode), prices, order.orderDate);
+        const found = priceFor(order.customerCode ?? "", productOf.get(l.itemCode), prices, order.orderDate,
+          customerOf.get(order.customerCode ?? "")?.groupCode);
         return { ...l, price: found.price };
       }),
     };
@@ -147,12 +156,20 @@ export function OrdersScreen({
             <tbody>
               {shown.map((o) => {
                 const c = customerOf.get(o.customerCode ?? "");
-                const s = STATUS.find((x) => x.value === o.status)!;
+                const s = statusOf(o.status);
                 return (
                   <tr key={o.orderNo}
                     onClick={() => { setEditing(o); setIsNew(false); setProblem(null); }}
                     className="cursor-pointer border-b border-line last:border-0 hover:bg-accent-soft/40">
-                    <td className="nums px-4 py-2.5 font-semibold">{o.orderNo}</td>
+                    <td className="nums px-4 py-2.5 font-semibold">
+                      {o.orderNo}
+                      {o.source && SOURCE[o.source] && (
+                        <span className="ml-2 align-middle"><Chip tone="blue">{SOURCE[o.source]}</Chip></span>
+                      )}
+                      {o.placedBy && o.source !== "erp" && (
+                        <div className="text-xs font-normal text-mute">by {o.placedBy}</div>
+                      )}
+                    </td>
                     <td className="px-4 py-2.5">
                       <div>{c?.shortName || c?.name || o.customerCode}</div>
                       {o.theirRef && <div className="text-xs text-mute">their ref {o.theirRef}</div>}
@@ -250,7 +267,8 @@ export function OrdersScreen({
               <div className="space-y-3">
                 {editing.lines.map((line, i) => {
                   const item = productOf.get(line.itemCode);
-                  const found = priceFor(editing.customerCode ?? "", item, prices, editing.orderDate);
+                  const found = priceFor(editing.customerCode ?? "", item, prices, editing.orderDate,
+                    customerOf.get(editing.customerCode ?? "")?.groupCode);
                   return (
                     <div key={i} className="rounded-xl border border-line p-3">
                       <div className="mb-2 flex items-start gap-2">

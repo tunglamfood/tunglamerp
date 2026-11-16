@@ -7,23 +7,36 @@ import { PriceRow, Product } from "./types";
 
 /**
  * The price in force for one dealer and one product on `onDate`: the newest
- * row dated on or before that day. Falls back to the product's own list price,
- * and finally to zero, which the order screen shows as "no price set".
+ * row dated on or before that day — the dealer's own first, then their group's.
+ * Falls back to the product's own list price, and finally to zero, which the
+ * order screen shows as "no price set".
+ *
+ * The database has the same rule as sales_price_for(), which the dealer portal
+ * uses — keep the two in step.
  */
 export function priceFor(
   customerCode: string,
   item: Product | undefined,
   prices: PriceRow[],
   onDate: string,
-): { price: number; source: "dealer" | "list" | "none"; from?: string } {
-  let best: PriceRow | undefined;
-  for (const row of prices) {
-    if (row.customerCode !== customerCode) continue;
-    if (row.itemCode !== (item?.itemCode ?? "")) continue;
-    if (row.effectiveFrom > onDate) continue; // not started yet
-    if (!best || row.effectiveFrom > best.effectiveFrom) best = row;
+  groupCode?: string | null,
+): { price: number; source: "dealer" | "group" | "list" | "none"; from?: string } {
+  const newest = (match: (row: PriceRow) => boolean) => {
+    let best: PriceRow | undefined;
+    for (const row of prices) {
+      if (!match(row)) continue;
+      if (row.itemCode !== (item?.itemCode ?? "")) continue;
+      if (row.effectiveFrom > onDate) continue; // not started yet
+      if (!best || row.effectiveFrom > best.effectiveFrom) best = row;
+    }
+    return best;
+  };
+  const own = newest((row) => row.customerCode === customerCode);
+  if (own) return { price: own.price, source: "dealer", from: own.effectiveFrom };
+  if (groupCode) {
+    const shared = newest((row) => !row.customerCode && row.groupCode === groupCode);
+    if (shared) return { price: shared.price, source: "group", from: shared.effectiveFrom };
   }
-  if (best) return { price: best.price, source: "dealer", from: best.effectiveFrom };
   if (item && item.basePrice > 0) return { price: item.basePrice, source: "list" };
   return { price: 0, source: "none" };
 }

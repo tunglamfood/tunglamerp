@@ -37,6 +37,7 @@ export const MODULES = [
       { href: "/sales/customers", label: "Customers", icon: "shop" as const },
       { href: "/sales/products", label: "Products", icon: "box" as const },
       { href: "/sales/prices", label: "Price lists", icon: "wallet" as const },
+      { href: "/sales/portal", label: "Dealer portal", icon: "people" as const },
     ],
   },
 ] as const;

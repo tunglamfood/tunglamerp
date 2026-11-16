@@ -148,6 +148,7 @@ type OrderRow = {
   id: number; order_no: string; customer_code: string | null; group_code: string | null;
   order_date: string; deliver_on: string | null; status: string;
   their_ref: string | null; note: string | null;
+  source?: string; placed_by?: string | null; submitted_at?: string | null; currency?: string;
 };
 type LineRow = {
   id: number; order_id: number; line_no: number; item_code: string;
@@ -187,15 +188,21 @@ export async function listOrders(limit = 200): Promise<SalesOrder[]> {
     orderDate: o.order_date, deliverOn: o.deliver_on,
     status: o.status as OrderStatus, theirRef: o.their_ref, note: o.note,
     lines: byOrder.get(o.id) ?? [],
+    source: (o.source ?? "erp") as SalesOrder["source"], placedBy: o.placed_by ?? null,
+    submittedAt: o.submitted_at ?? null, currency: o.currency ?? "MYR",
   }));
 }
 
 /** Saves the order and replaces its lines wholesale — simpler than diffing, and
- *  an order is never big enough for that to matter. */
-export async function saveOrder(order: SalesOrder): Promise<number> {
+ *  an order is never big enough for that to matter.
+ *
+ *  A new order is only ever inserted, never upserted by number: dealers also
+ *  write orders from the portal now, and an upsert on a number the portal had
+ *  just taken would silently overwrite their order. If the number this screen
+ *  proposed is gone, the database hands out the next free one. */
+export async function saveOrder(order: SalesOrder, actor = "Office"): Promise<number> {
   const db = serverSupabase();
   const head = {
-    order_no: order.orderNo,
     customer_code: order.customerCode ?? null,
     group_code: order.groupCode ?? null,
     order_date: order.orderDate, deliver_on: order.deliverOn,
@@ -203,10 +210,34 @@ export async function saveOrder(order: SalesOrder): Promise<number> {
     updated_at: new Date().toISOString(),
   };
 
-  const { data, error } = await db
-    .from("sales_orders").upsert(head, { onConflict: "order_no" }).select("id").single();
-  fail("Could not save the order", error);
-  const orderId = (data as { id: number }).id;
+  let orderId: number;
+  let before: { status: string } | null = null;
+  if (order.id) {
+    const { data: was } = await db.from("sales_orders").select("status").eq("id", order.id).maybeSingle();
+    before = was as { status: string } | null;
+    const { error } = await db.from("sales_orders").update(head).eq("id", order.id);
+    fail("Could not save the order", error);
+    orderId = order.id;
+  } else {
+    let orderNo = order.orderNo;
+    for (let attempt = 0; ; attempt++) {
+      const { data, error } = await db
+        .from("sales_orders").insert({ ...head, order_no: orderNo }).select("id").single();
+      if (!error) { orderId = (data as { id: number }).id; break; }
+      if (error.code !== "23505" || attempt >= 3) fail("Could not save the order", error);
+      const { data: next, error: nextError } = await db.rpc("sales_next_order_no", { p_on: order.orderDate });
+      fail("Could not get the next order number", nextError);
+      orderNo = next as string;
+    }
+  }
+
+  // Both sides see an order's history; the portal shows it to the dealer.
+  if (!before || before.status !== order.status) {
+    await db.from("sales_order_events").insert({
+      order_id: orderId, actor, kind: before ? order.status : "created",
+      detail: before ? { from: before.status } : null,
+    });
+  }
 
   const { error: wipe } = await db.from("sales_order_lines").delete().eq("order_id", orderId);
   fail("Could not clear the old order lines", wipe);
