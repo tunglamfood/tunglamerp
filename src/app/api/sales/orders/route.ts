@@ -6,7 +6,7 @@ import { OrderLine, OrderStatus } from "@/lib/types";
 
 export const runtime = "nodejs";
 
-const PRICE_SOURCES = ["dealer", "group", "list", "none", "manual"];
+const PRICE_SOURCES = ["dealer", "group", "list", "none", "manual", "promo"];
 const STATUSES: OrderStatus[] = ["submitted", "on_hold", "draft", "confirmed", "delivered", "cancelled"];
 
 export async function GET() {
