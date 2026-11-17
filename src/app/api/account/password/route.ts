@@ -17,12 +17,18 @@ export async function POST(request: Request) {
 
   try {
     const row = await findLogin(user.username);
-    if (!row || !(await verifyPassword(current, row.password_hash))) {
+    if (!row) return unauthorised();
+    // Right after signing in with a one-time password, that sign-in already proved it —
+    // asking for it again only gets in the way. Changing a password you chose yourself
+    // still needs the current one, so a session left open cannot be taken over.
+    if (!user.mustChange && !(await verifyPassword(current, row.password_hash))) {
       return problem("Your current password is not right.");
     }
     const why = passwordProblem(next);
     if (why) return problem(why);
-    if (next === current) return problem("Choose a password different from the current one.");
+    if (await verifyPassword(next, row.password_hash)) {
+      return problem(user.mustChange ? "Choose your own password, not the one-time one." : "Choose a password different from the current one.");
+    }
 
     const version = await setOwnPassword(user.id, await hashPassword(next));
     // Other devices are signed out; this one carries on with a fresh cookie.

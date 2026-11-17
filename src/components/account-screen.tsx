@@ -54,7 +54,7 @@ export function AccountScreen({
       {mustChange && (
         <div className="mb-5">
           <Notice tone="warn">
-            You signed in with a one-time password. Choose your own password to carry on.
+            Welcome! Choose your own password to carry on — the one-time password stops working once you do.
           </Notice>
         </div>
       )}
@@ -85,10 +85,12 @@ export function AccountScreen({
             At least 8 characters. Changing it signs you out on your other devices.
           </p>
           <form onSubmit={save} className="mt-4 space-y-4">
-            <Field label={mustChange ? "One-time password" : "Current password"}>
-              <input className={inputCls} type="password" autoComplete="current-password" value={current}
-                onChange={(e) => setCurrent(e.target.value)} />
-            </Field>
+            {!mustChange && (
+              <Field label="Current password">
+                <input className={inputCls} type="password" autoComplete="current-password" value={current}
+                  onChange={(e) => setCurrent(e.target.value)} />
+              </Field>
+            )}
             <Field label="New password">
               <input className={inputCls} type="password" autoComplete="new-password" value={next}
                 onChange={(e) => { setNext(e.target.value); setDone(false); }} />
@@ -100,7 +102,7 @@ export function AccountScreen({
             {mismatch && <p className="text-sm font-medium text-bad">The two new passwords are not the same.</p>}
             {error && <Notice tone="bad">{error}</Notice>}
             {done && <Notice tone="good">Saved. Use your new password next time you sign in.</Notice>}
-            <Btn type="submit" disabled={busy || !current || next.length < 8 || next !== again}>
+            <Btn type="submit" disabled={busy || (!mustChange && !current) || next.length < 8 || next !== again}>
               {busy ? "Saving…" : "Save new password"}
             </Btn>
           </form>
