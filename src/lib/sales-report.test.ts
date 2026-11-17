@@ -67,6 +67,18 @@ describe("salesReport", () => {
   });
 });
 
+describe("chains", () => {
+  it("adds a chain's branches together", () => {
+    const branch = (code: string) => ({ ...cust(code, code), groupCode: "LOTUS" });
+    const r = salesReport({
+      orders: [order("L1", "2026-11-03", [["TL120", 10, 2]]), order("L2", "2026-11-04", [["TL120", 5, 2]]), order("A", "2026-11-04", [["TL120", 1, 2]])],
+      customers: [branch("L1"), branch("L2"), branch("L3"), ...customers], products, logins: [],
+      from: "2026-11-01", to: "2026-11-17", today: "2026-11-17", groupNames: { LOTUS: "Lotus's" },
+    });
+    expect(r.chains).toEqual([{ code: "LOTUS", name: "Lotus's", branches: 3, ordering: 2, orders: 2, value: 30 }]);
+  });
+});
+
 describe("periodRange", () => {
   it("knows this month, last month and the last 90 days", () => {
     expect(periodRange("month", "2026-11-17")).toMatchObject({ from: "2026-11-01", to: "2026-11-17" });

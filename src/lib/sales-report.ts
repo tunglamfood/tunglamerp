@@ -13,6 +13,7 @@ export interface PortalLogin {
 export interface Bucket { start: string; label: string; orders: number; value: number }
 export interface DealerRow { key: string; name: string; orders: number; value: number; portalShare: number }
 export interface ProductRow { itemCode: string; description: string; qty: number; uom: string; value: number }
+export interface ChainRow { code: string; name: string; branches: number; ordering: number; orders: number; value: number }
 export interface QuietDealer { key: string; name: string; lastOrder: string; daysSince: number; usualGap: number; orders: number }
 
 export interface SalesReport {
@@ -29,6 +30,8 @@ export interface SalesReport {
   topProducts: ProductRow[];
   adoption: { dealersWithLogin: number; signedIn30d: number; orderedOnPortal: number };
   quiet: QuietDealer[];
+  /** Chains (customer groups): their branches added up. */
+  chains: ChainRow[];
 }
 
 const DAY = 86400_000;
@@ -164,7 +167,27 @@ export function salesReport({
   }
   quiet.sort((a, b) => b.daysSince / Math.max(1, b.usualGap) - a.daysSince / Math.max(1, a.usualGap));
 
+  // Chains: every order from a branch (or a group sheet) counts towards its group.
+  const groupOf = new Map(customers.map((c) => [c.code, c.groupCode ?? null]));
+  const branchCount = new Map<string, number>();
+  for (const c of customers) if (c.groupCode && c.active) branchCount.set(c.groupCode, (branchCount.get(c.groupCode) ?? 0) + 1);
+  const chainRows = new Map<string, ChainRow & { who: Set<string> }>();
+  for (const o of inRange) {
+    const g = o.groupCode ?? (o.customerCode ? groupOf.get(o.customerCode) : null);
+    if (!g) continue;
+    const row = chainRows.get(g) ?? { code: g, name: groupNames[g] ?? g, branches: branchCount.get(g) ?? 0, ordering: 0, orders: 0, value: 0, who: new Set<string>() };
+    row.orders++;
+    row.value = round2(row.value + lineValue(o));
+    if (o.customerCode) row.who.add(o.customerCode);
+    for (const l of o.lines) if (l.outletCode) row.who.add(l.outletCode);
+    chainRows.set(g, row);
+  }
+  const chains = [...chainRows.values()]
+    .map(({ who, ...r }) => ({ ...r, ordering: who.size }))
+    .sort((a, b) => b.value - a.value);
+
   return {
+    chains,
     orders: inRange.length,
     value,
     avgValue: inRange.length ? round2(value / inRange.length) : 0,

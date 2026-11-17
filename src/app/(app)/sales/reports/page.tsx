@@ -128,6 +128,27 @@ function Report({ r }: { r: SalesReport }) {
         </Card>
       </div>
 
+      {r.chains.length > 0 && (
+        <Card className="overflow-hidden">
+          <h2 className="border-b border-line px-5 py-3 text-sm font-bold">Chains (all branches together)</h2>
+          <table className="w-full text-sm">
+            <thead><tr className="text-left text-[10px] font-bold uppercase tracking-[0.1em] text-faint">
+              <th className="px-5 py-2">Chain</th><th className="px-3 py-2 text-right">Branches ordering</th><th className="px-3 py-2 text-right">Orders</th><th className="px-5 py-2 text-right">Value</th>
+            </tr></thead>
+            <tbody>
+              {r.chains.map((c) => (
+                <tr key={c.code} className="border-t border-line">
+                  <td className="px-5 py-2.5 font-medium">{c.name}</td>
+                  <td className="nums px-3 py-2.5 text-right">{c.ordering} <span className="text-mute">of {c.branches}</span></td>
+                  <td className="nums px-3 py-2.5 text-right">{c.orders}</td>
+                  <td className="nums px-5 py-2.5 text-right font-semibold">{rm(c.value)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+      )}
+
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
         <Card className="p-5">
           <h2 className="text-sm font-bold">Dealer portal use</h2>
