@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { Btn, Card, Chip, Drawer, Field, Notice, PageHeader, Select, inputCls } from "@/components/ui";
 import { post, remove } from "@/lib/api";
 import { Customer, OrderLine, OrderStatus, PriceRow, Product, SalesOrder } from "@/lib/types";
-import { lineAmount, nextOrderNo, orderTotal, priceFor } from "@/lib/pricing";
+import { lineAmount, nextOrderNo, orderTotal, priceFor, priceWithPromo, type PromoRule } from "@/lib/pricing";
 
 const money = (n: number) => n.toLocaleString("en-MY", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const today = () => new Date().toISOString().slice(0, 10);
@@ -29,9 +29,9 @@ const firstOfMonth = () => `${today().slice(0, 8)}01`;
 const blankLine = (): OrderLine => ({ lineNo: 1, itemCode: "", qty: 0, uom: "", price: 0, note: null });
 
 export function OrdersScreen({
-  orders, customers, products, prices,
+  orders, customers, products, prices, promotions = [],
 }: {
-  orders: SalesOrder[]; customers: Customer[]; products: Product[]; prices: PriceRow[];
+  orders: SalesOrder[]; customers: Customer[]; products: Product[]; prices: PriceRow[]; promotions?: PromoRule[];
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState<SalesOrder | null>(null);
@@ -74,8 +74,8 @@ export function OrdersScreen({
   /** Picking a product fills in its unit and this dealer's own price. */
   function fillLine(order: SalesOrder, index: number, itemCode: string): SalesOrder {
     const item = productOf.get(itemCode);
-    const found = priceFor(order.customerCode ?? "", item, prices, order.orderDate,
-      customerOf.get(order.customerCode ?? "")?.groupCode);
+    const found = priceWithPromo(order.customerCode ?? "", item, order.lines[index]?.qty ?? 0, prices, promotions,
+      order.orderDate, customerOf.get(order.customerCode ?? "")?.groupCode);
     const lines = [...order.lines];
     lines[index] = {
       ...lines[index],
@@ -93,8 +93,8 @@ export function OrdersScreen({
       ...order,
       lines: order.lines.map((l) => {
         if (!l.itemCode) return l;
-        const found = priceFor(order.customerCode ?? "", productOf.get(l.itemCode), prices, order.orderDate,
-          customerOf.get(order.customerCode ?? "")?.groupCode);
+        const found = priceWithPromo(order.customerCode ?? "", productOf.get(l.itemCode), l.qty, prices, promotions,
+          order.orderDate, customerOf.get(order.customerCode ?? "")?.groupCode);
         return { ...l, price: found.price, priceSource: found.source };
       }),
     };
@@ -438,8 +438,15 @@ export function OrdersScreen({
                           <span className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-faint">Qty</span>
                           <input className={`${inputCls} nums`} inputMode="decimal" value={String(line.qty)}
                             onChange={(e) => {
+                              const qty = Number(e.target.value) || 0;
                               const lines = [...editing.lines];
-                              lines[i] = { ...line, qty: Number(e.target.value) || 0 };
+                              lines[i] = { ...line, qty };
+                              // A typed price stays; otherwise a promotion may start (or stop) at this quantity.
+                              if (line.itemCode && line.priceSource !== "manual") {
+                                const p = priceWithPromo(editing.customerCode ?? "", item, qty, prices, promotions,
+                                  editing.orderDate, customerOf.get(editing.customerCode ?? "")?.groupCode);
+                                lines[i] = { ...lines[i], price: p.price, priceSource: p.source };
+                              }
                               setEditing({ ...editing, lines });
                             }} />
                         </label>

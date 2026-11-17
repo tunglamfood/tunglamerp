@@ -41,6 +41,62 @@ export function priceFor(
   return { price: 0, source: "none" };
 }
 
+/** A promotion as the order screen needs it (see Sales → Promotions). */
+export interface PromoRule {
+  itemCode: string;
+  kind: "price" | "percent";
+  value: number;
+  minQty: number;
+  customerCode: string | null;
+  groupCode: string | null;
+  startsOn: string;
+  endsOn: string | null;
+  active: boolean;
+}
+
+/**
+ * The best promotion price for this dealer, item and quantity on a day — the same rule
+ * the database applies to portal orders (sales_promo_for). Null when none applies.
+ */
+export function promoFor(
+  customerCode: string,
+  groupCode: string | null | undefined,
+  itemCode: string,
+  qty: number,
+  onDate: string,
+  basePrice: number,
+  promos: PromoRule[],
+): number | null {
+  let best: number | null = null;
+  for (const p of promos) {
+    if (!p.active || p.itemCode !== itemCode) continue;
+    if (p.startsOn > onDate || (p.endsOn && p.endsOn < onDate)) continue;
+    if (p.customerCode && p.customerCode !== customerCode) continue;
+    if (p.groupCode && p.groupCode !== (groupCode ?? null)) continue;
+    if (qty < p.minQty) continue;
+    const price = p.kind === "price" ? p.value : basePrice > 0 ? Math.round(basePrice * (1 - p.value / 100) * 100) / 100 : 0;
+    if (price > 0 && (best === null || price < best)) best = price;
+  }
+  return best;
+}
+
+/** The dealer's own price, unless a promotion for this quantity is lower. */
+export function priceWithPromo(
+  customerCode: string,
+  item: Product | undefined,
+  qty: number,
+  prices: PriceRow[],
+  promos: PromoRule[],
+  onDate: string,
+  groupCode?: string | null,
+): { price: number; source: "dealer" | "group" | "list" | "none" | "promo" } {
+  const base = priceFor(customerCode, item, prices, onDate, groupCode);
+  if (!item) return base;
+  const promo = promoFor(customerCode, groupCode, item.itemCode, qty, onDate, base.price, promos);
+  if (promo !== null && (base.price <= 0 || promo < base.price)) return { price: promo, source: "promo" };
+  return base;
+}
+
 /** Every dealer price for one product, newest first — for the product screen. */
 export function pricesForItem(itemCode: string, prices: PriceRow[]): PriceRow[] {
   return prices

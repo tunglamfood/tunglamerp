@@ -7,15 +7,17 @@ import { Tabs } from "@/components/tabs";
 import { OrdersScreen } from "@/components/orders-screen";
 import { SheetScreen } from "@/components/sheet-screen";
 import { Customer, CustomerGroup, PriceRow, Product, SalesOrder } from "@/lib/types";
+import type { PromoRule } from "@/lib/pricing";
 
 export function OrderHub({
-  orders, customers, products, prices, groups,
+  orders, customers, products, prices, groups, promotions = [],
 }: {
   orders: SalesOrder[];
   customers: Customer[];
   products: Product[];
   prices: PriceRow[];
   groups: CustomerGroup[];
+  promotions?: PromoRule[];
 }) {
   return (
     <Tabs
@@ -27,6 +29,7 @@ export function OrderHub({
           panel: (
             <OrdersScreen
               orders={orders} customers={customers} products={products} prices={prices}
+              promotions={promotions}
             />
           ),
         },

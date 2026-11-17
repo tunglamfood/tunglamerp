@@ -3,6 +3,8 @@ import {
   listCustomers, listGroups, listOrders, listPrices, listProducts,
 } from "@/lib/store-sales";
 import { OrderHub } from "@/components/order-hub";
+import { listPromotions } from "@/lib/store-promotions";
+import type { PromoRule } from "@/lib/pricing";
 import { Customer, CustomerGroup, PriceRow, Product, SalesOrder } from "@/lib/types";
 import { requireArea } from "@/lib/auth";
 
@@ -15,10 +17,11 @@ export default async function Page() {
   let products: Product[] = [];
   let prices: PriceRow[] = [];
   let groups: CustomerGroup[] = [];
+  let promotions: PromoRule[] = [];
   let problem: string | null = null;
   try {
-    [orders, customers, products, prices, groups] = await Promise.all([
-      listOrders(), listCustomers(), listProducts(), listPrices(), listGroups(),
+    [orders, customers, products, prices, groups, promotions] = await Promise.all([
+      listOrders(), listCustomers(), listProducts(), listPrices(), listGroups(), listPromotions(),
     ]);
   } catch (e) {
     problem = (e as Error).message;
@@ -35,7 +38,7 @@ export default async function Page() {
   return (
     <OrderHub
       orders={orders} customers={customers} products={products}
-      prices={prices} groups={groups}
+      prices={prices} groups={groups} promotions={promotions}
     />
   );
 }

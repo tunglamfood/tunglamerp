@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { currentListFor, lineAmount, nextOrderNo, priceFor, pricesForItem, orderTotal } from "./pricing";
+import { currentListFor, lineAmount, nextOrderNo, priceFor, priceWithPromo, pricesForItem, promoFor, orderTotal, type PromoRule } from "./pricing";
 import { PriceRow, Product } from "./types";
 
 const item = (over: Partial<Product> = {}): Product => ({
@@ -110,5 +110,33 @@ describe("nextOrderNo", () => {
   });
   it("does not let another month's numbers interfere", () => {
     expect(nextOrderNo(["SO-2026-08-0099"], "2026-09-05")).toBe("SO-2026-09-0001");
+  });
+});
+
+describe("promotions on office orders", () => {
+  const item = { itemCode: "TL120", basePrice: 1.2 } as unknown as Parameters<typeof priceWithPromo>[1];
+  const promo = (over: Partial<PromoRule> = {}): PromoRule => ({
+    itemCode: "TL120", kind: "price", value: 1, minQty: 10, customerCode: null, groupCode: null,
+    startsOn: "2026-11-01", endsOn: null, active: true, ...over,
+  });
+
+  it("uses the promotion only from its minimum quantity", () => {
+    expect(priceWithPromo("A", item, 9, [], [promo()], "2026-11-17")).toMatchObject({ price: 1.2, source: "list" });
+    expect(priceWithPromo("A", item, 10, [], [promo()], "2026-11-17")).toEqual({ price: 1, source: "promo" });
+  });
+
+  it("works out a % off from the dealer's own price", () => {
+    expect(priceWithPromo("A", item, 1, [], [promo({ kind: "percent", value: 25, minQty: 1 })], "2026-11-17")).toEqual({ price: 0.9, source: "promo" });
+  });
+
+  it("ignores promotions for other dealers, other groups, or outside their dates", () => {
+    expect(promoFor("A", null, "TL120", 50, "2026-11-17", 1.2, [promo({ customerCode: "B" })])).toBeNull();
+    expect(promoFor("A", "G1", "TL120", 50, "2026-11-17", 1.2, [promo({ groupCode: "G2" })])).toBeNull();
+    expect(promoFor("A", null, "TL120", 50, "2026-11-17", 1.2, [promo({ endsOn: "2026-11-16" })])).toBeNull();
+    expect(promoFor("A", null, "TL120", 50, "2026-11-17", 1.2, [promo({ active: false })])).toBeNull();
+  });
+
+  it("keeps the dealer's own price when it is already lower", () => {
+    expect(priceWithPromo("A", item, 10, [], [promo({ value: 1.5 })], "2026-11-17")).toMatchObject({ source: "list" });
   });
 });
