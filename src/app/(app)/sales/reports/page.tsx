@@ -167,7 +167,7 @@ function Report({ r }: { r: SalesReport }) {
   );
 }
 
-type RepRow = { code: string; name: string; dealers: number; orders: number; value: number; target: number | null };
+type RepRow = { code: string; name: string; dealers: number; orders: number; value: number; target: number | null; commission: number | null };
 
 /** Each rep's dealers' orders in the period (any source), against their monthly target. */
 function repRows(reps: SalesRep[], orders: SalesOrder[], from: string, to: string): RepRow[] {
@@ -176,8 +176,11 @@ function repRows(reps: SalesRep[], orders: SalesOrder[], from: string, to: strin
     .map((r) => {
       const mine = new Set(r.customerCodes);
       const os = orders.filter((o) => o.customerCode && mine.has(o.customerCode) && o.status !== "cancelled" && o.status !== "draft" && o.orderDate >= from && o.orderDate <= to);
-      const value = Math.round(os.reduce((s, o) => s + o.lines.reduce((t, l) => t + l.qty * l.price, 0), 0) * 100) / 100;
-      return { code: r.code, name: r.name, dealers: r.customerCodes.length, orders: os.length, value, target: r.monthlyTarget };
+      const worth = (list: SalesOrder[]) => Math.round(list.reduce((s, o) => s + o.lines.reduce((t, l) => t + l.qty * l.price, 0), 0) * 100) / 100;
+      const value = worth(os);
+      const delivered = worth(os.filter((o) => o.status === "delivered"));
+      const commission = r.commissionRate ? Math.round(delivered * r.commissionRate) / 100 : null;
+      return { code: r.code, name: r.name, dealers: r.customerCodes.length, orders: os.length, value, target: r.monthlyTarget, commission };
     })
     .sort((a, b) => b.value - a.value);
 }
@@ -192,7 +195,7 @@ function RepTable({ reps, monthly }: { reps: RepRow[]; monthly: boolean }) {
       <table className="w-full text-sm">
         <thead><tr className="text-left text-[10px] font-bold uppercase tracking-[0.1em] text-faint">
           <th className="px-5 py-2">Rep</th><th className="px-3 py-2 text-right">Dealers</th><th className="px-3 py-2 text-right">Orders</th>
-          <th className="px-3 py-2 text-right">Value</th>{monthly && <th className="px-5 py-2">Monthly target</th>}
+          <th className="px-3 py-2 text-right">Value</th><th className="px-3 py-2 text-right">Commission</th>{monthly && <th className="px-5 py-2">Monthly target</th>}
         </tr></thead>
         <tbody>
           {reps.map((r) => {
@@ -203,6 +206,7 @@ function RepTable({ reps, monthly }: { reps: RepRow[]; monthly: boolean }) {
                 <td className="nums px-3 py-2.5 text-right text-mute">{r.dealers}</td>
                 <td className="nums px-3 py-2.5 text-right">{r.orders}</td>
                 <td className="nums px-3 py-2.5 text-right font-semibold">{rm(r.value)}</td>
+                <td className="nums px-3 py-2.5 text-right text-mute" title="Rate × orders marked Delivered">{r.commission == null ? "—" : rm(r.commission)}</td>
                 {monthly && (
                   <td className="px-5 py-2.5">
                     {pct == null ? <span className="text-faint">No target</span> : (

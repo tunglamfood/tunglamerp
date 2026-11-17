@@ -44,6 +44,8 @@ export interface SalesRep {
   customerCodes: string[];
   /** Sales the rep aims for each month, in RM. Empty when none is set. */
   monthlyTarget: number | null;
+  /** % of delivered sales for their dealers. Empty when none is set. */
+  commissionRate: number | null;
 }
 
 export interface PortalVariant {
@@ -125,17 +127,18 @@ export async function listReps(): Promise<SalesRep[]> {
     if (!byRep.has(l.rep_code)) byRep.set(l.rep_code, []);
     byRep.get(l.rep_code)!.push(l.customer_code);
   }
-  return ((data ?? []) as { code: string; name: string; phone: string | null; active: boolean; monthly_target: number | null }[]).map((r) => ({
+  return ((data ?? []) as { code: string; name: string; phone: string | null; active: boolean; monthly_target: number | null; commission_rate: number | null }[]).map((r) => ({
     code: r.code, name: r.name, phone: r.phone, active: r.active,
     customerCodes: (byRep.get(r.code) ?? []).sort(),
     monthlyTarget: r.monthly_target == null ? null : Number(r.monthly_target),
+    commissionRate: r.commission_rate == null ? null : Number(r.commission_rate),
   }));
 }
 
 export async function saveRep(r: SalesRep): Promise<void> {
   const db = serverSupabase();
   const { error } = await db.from("sales_reps").upsert({
-    code: r.code, name: r.name, phone: r.phone, active: r.active, monthly_target: r.monthlyTarget,
+    code: r.code, name: r.name, phone: r.phone, active: r.active, monthly_target: r.monthlyTarget, commission_rate: r.commissionRate,
     updated_at: new Date().toISOString(),
   });
   fail(`Could not save ${r.name}`, error);

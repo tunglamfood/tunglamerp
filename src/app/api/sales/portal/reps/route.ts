@@ -27,6 +27,7 @@ export async function POST(request: Request) {
       active: b.active !== false,
       customerCodes: Array.isArray(b.customerCodes) ? (b.customerCodes as unknown[]).map(String) : [],
       monthlyTarget: Number(b.monthlyTarget) > 0 ? Math.round(Number(b.monthlyTarget) * 100) / 100 : null,
+      commissionRate: Number(b.commissionRate) > 0 ? Math.min(50, Math.round(Number(b.commissionRate) * 100) / 100) : null,
     }),
   );
 }
