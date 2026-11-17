@@ -70,6 +70,8 @@ export interface PortalProduct {
   sort: number;
   active: boolean;
   variants: PortalVariant[];
+  /** A photo uploaded here (public URL), for products with no page on the website. */
+  photoUrl?: string | null;
 }
 
 /* ── Logins ────────────────────────────────────────────────────────────────── */
@@ -162,7 +164,7 @@ export async function deleteRep(code: string): Promise<void> {
 type ProductRow = {
   id: number; name_en: string; name_ms: string | null; name_zh: string | null;
   category: PortalProduct["category"]; brand: string; website_slug: string | null;
-  restricted: boolean; sort: number; active: boolean;
+  restricted: boolean; sort: number; active: boolean; photo_path: string | null;
 };
 type VariantRow = {
   item_code: string; product_id: number; label_en: string; label_ms: string | null;
@@ -189,6 +191,7 @@ export async function listPortalProducts(): Promise<PortalProduct[]> {
     id: p.id, nameEn: p.name_en, nameMs: p.name_ms, nameZh: p.name_zh, category: p.category,
     brand: p.brand, websiteSlug: p.website_slug, restricted: p.restricted, sort: p.sort,
     active: p.active, variants: byProduct.get(p.id) ?? [],
+    photoUrl: p.photo_path ? db.storage.from("portal-photos").getPublicUrl(p.photo_path).data.publicUrl : null,
   }));
 }
 

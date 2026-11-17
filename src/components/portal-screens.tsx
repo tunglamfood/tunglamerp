@@ -190,6 +190,42 @@ function WebsitePhotoPicker({
   );
 }
 
+/** For a product that is not on the website: upload its own photo here. */
+function PhotoUpload({ product, onChange }: { product: PortalProduct; onChange: (url: string | null) => void }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  if (!product.id) return <p className="mt-1.5 text-xs text-mute">Not on the website? Save the product first, then upload a photo here.</p>;
+  async function upload(file: File | undefined) {
+    if (!file) return;
+    setBusy(true);
+    setError(null);
+    const fd = new FormData();
+    fd.set("id", String(product.id));
+    fd.set("photo", file);
+    const res = await fetch("/api/sales/portal/photo", { method: "POST", body: fd }).catch(() => null);
+    const j = res ? await res.json().catch(() => ({})) : {};
+    setBusy(false);
+    if (!res?.ok) return setError(j.error ?? "Could not upload the photo.");
+    onChange(j.value?.url ?? null);
+  }
+  async function clear() {
+    setBusy(true);
+    await fetch(`/api/sales/portal/photo?id=${product.id}`, { method: "DELETE" }).catch(() => null);
+    setBusy(false);
+    onChange(null);
+  }
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-2">
+      <label className={`cursor-pointer rounded-xl border border-line bg-white px-3 py-1.5 text-xs font-semibold transition hover:bg-gray-50 ${busy ? "pointer-events-none opacity-50" : ""}`}>
+        {busy ? "Uploading…" : product.photoUrl ? "Change photo" : "Or upload a photo"}
+        <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={(e) => { void upload(e.target.files?.[0]); e.target.value = ""; }} />
+      </label>
+      {product.photoUrl && !busy && <button type="button" onClick={() => void clear()} className="text-xs font-semibold text-bad">Remove</button>}
+      {error && <span className="text-xs text-bad">{error}</span>}
+    </div>
+  );
+}
+
 function PhotoTile({ src, size = 40 }: { src: string | null | undefined; size?: number }) {
   return src ? (
     // eslint-disable-next-line @next/next/no-img-element -- photos come from tunglamfood.my storage
@@ -271,6 +307,7 @@ function CatalogueScreen({
   /** What the portal shows: the product's own photo, else the first pack that has one. */
   const photo = (p: PortalProduct) =>
     (p.websiteSlug && photoOf.get(p.websiteSlug)) ||
+    p.photoUrl ||
     p.variants.map((v) => v.websiteSlug && photoOf.get(v.websiteSlug)).find(Boolean) ||
     null;
   const withoutPhoto = website.length > 0 ? products.filter((p) => p.active && !photo(p)).length : 0;
@@ -381,6 +418,7 @@ function CatalogueScreen({
                     View on tunglamfood.my
                   </a>
                 )}
+                {!p.websiteSlug && <PhotoUpload product={p} onChange={(url) => set({ ...p, photoUrl: url })} />}
               </div>
             </div>
           </Field>
