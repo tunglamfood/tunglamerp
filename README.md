@@ -158,3 +158,12 @@ public holidays. Lock the plan when soaking starts; later orders show as a diffe
 record what was made: the lot number (YYMMDD-LINE-ITEM) and EXP date fill themselves in, and Production →
 Trace a lot lists the dealers who received it. Set products up under Production → Recipes & setup.
 The maths is in `src/lib/production.ts` (tested); staff need the "Production" area.
+
+## Packing and delivery
+
+Production → Routes: one route per lorry run (driver, lorry), with its dealers in stop order.
+Production → Packing & delivery: one delivery day by route and stop, what to pack per dealer in the units they
+ordered (a chain's sheet is split into its outlets), a Packed tick per order, the lorry load, printable trip
+sheets (one page per route, with a driver signature line), and "Mark route delivered" after the trip, which
+moves confirmed orders to Delivered with history for the dealer (and an SMS when ORDER_SMS is on).
+The grouping is in `src/lib/packing.ts` (tested).

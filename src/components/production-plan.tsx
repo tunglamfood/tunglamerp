@@ -6,7 +6,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Fragment, useMemo, useState } from "react";
-import { Btn, Card, Chip, Notice, PageHeader, Stat, inputCls } from "@/components/ui";
+import { Btn, Card, Chip, Notice, PageHeader, Stat } from "@/components/ui";
 import type { Plan, PlanRow } from "@/lib/production";
 import type { SavedPlan } from "@/lib/store-production";
 
@@ -87,7 +87,7 @@ export function ProductionPlanScreen({
         right={
           <div className="no-print flex flex-wrap items-center gap-2">
             <Btn kind="ghost" size="sm" onClick={() => go(addDays(delivery, -1))}>← Day before</Btn>
-            <input type="date" className={`${inputCls} nums w-[150px]`} value={delivery} onChange={(e) => e.target.value && go(e.target.value)} />
+            <input type="date" className="nums w-[150px] rounded-xl border border-line bg-white px-3 py-2 text-sm transition focus:border-accent" value={delivery} onChange={(e) => e.target.value && go(e.target.value)} />
             <Btn kind="ghost" size="sm" onClick={() => go(addDays(delivery, 1))}>Next day →</Btn>
             <Btn kind="ghost" size="sm" onClick={() => window.print()}>Print</Btn>
           </div>

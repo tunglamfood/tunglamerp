@@ -52,8 +52,10 @@ export const MODULES = [
     ready: true,
     items: [
       { href: "/production/plan", label: "Daily plan", icon: "factory" as const },
+      { href: "/production/packing", label: "Packing & delivery", icon: "truck" as const },
       { href: "/production/setup", label: "Recipes & setup", icon: "box" as const },
       { href: "/production/trace", label: "Trace a lot", icon: "search" as const },
+      { href: "/production/routes", label: "Routes", icon: "pin" as const },
     ],
   },
   {
@@ -69,7 +71,7 @@ const WEBSITE_LINKS: { href: string; label: string; area: Area; icon: IconName }
   { href: `${WEBSITE_URL}/portal`, label: "Dealer portal (live)", area: "sales", icon: "external" },
 ];
 
-type IconName = "home" | "calendar" | "people" | "shop" | "box" | "doc" | "shield" | "wallet" | "spark" | "inbox" | "globe" | "external" | "chart" | "pin" | "tag" | "ledger" | "factory" | "search";
+type IconName = "home" | "calendar" | "people" | "shop" | "box" | "doc" | "shield" | "wallet" | "spark" | "inbox" | "globe" | "external" | "chart" | "pin" | "tag" | "ledger" | "factory" | "search" | "truck";
 
 function Icon({ name }: { name: IconName }) {
   const paths: Record<IconName, string> = {
@@ -91,6 +93,7 @@ function Icon({ name }: { name: IconName }) {
     ledger: "M4 3.5h9l3 3V16.5H4v-13Zm3 5h6M7 11h6M7 14h4",
     factory: "M3 16.5V8l4 2.5V8l4 2.5V8l4 2.5V4h2v12.5H3Zm3-3h1m3 0h1m3 0h1",
     search: "M9 14.5a5.5 5.5 0 1 0 0-11 5.5 5.5 0 0 0 0 11Zm4-1.5 3.5 3.5",
+    truck: "M2.5 5.5h9v8h-9v-8Zm9 3h3l2.5 2.5v2.5h-5.5M5.5 15.5a1.5 1.5 0 1 0 0-.01M14 15.5a1.5 1.5 0 1 0 0-.01",
   };
   return (
     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5"

@@ -194,6 +194,9 @@ export interface Customer {
   /** Their portal orders arrive as "on_hold" for the office to review. */
   onHold?: boolean;
   holdReason?: string | null;
+  /** The delivery route (lorry) this dealer is on, and their stop number on it. */
+  routeCode?: string | null;
+  routeSort?: number | null;
 }
 
 export interface Product {
@@ -279,6 +282,8 @@ export interface SalesOrder {
   /** When it went out to AutoCount, and in which file. */
   exportedAt?: string | null;
   exportRef?: string | null;
+  /** When it was packed for delivery (Production → Packing). */
+  packedAt?: string | null;
   /** Written by the office when saving; shown to the dealer with the change. Not kept on the order itself. */
   dealerMessage?: string | null;
 }

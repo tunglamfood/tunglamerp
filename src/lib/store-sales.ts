@@ -19,6 +19,7 @@ type CustomerRow = {
   group_code: string | null; short_code: string | null;
   currency?: string | null; payment_terms?: string | null; credit_limit?: number | string | null;
   on_hold?: boolean | null; hold_reason?: string | null;
+  route_code?: string | null; route_sort?: number | null;
 };
 
 const toCustomer = (r: CustomerRow): Customer => ({
@@ -31,6 +32,8 @@ const toCustomer = (r: CustomerRow): Customer => ({
   creditLimit: r.credit_limit == null ? null : Number(r.credit_limit),
   onHold: r.on_hold === true,
   holdReason: r.hold_reason ?? null,
+  routeCode: r.route_code ?? null,
+  routeSort: r.route_sort ?? null,
 });
 
 export async function listCustomers(): Promise<Customer[]> {
@@ -166,7 +169,7 @@ type OrderRow = {
   order_date: string; deliver_on: string | null; status: string;
   their_ref: string | null; note: string | null;
   source?: string; placed_by?: string | null; submitted_at?: string | null; currency?: string;
-  exported_at?: string | null; export_ref?: string | null;
+  exported_at?: string | null; export_ref?: string | null; packed_at?: string | null;
 };
 type LineRow = {
   id: number; order_id: number; line_no: number; item_code: string;
@@ -225,7 +228,7 @@ export async function listOrders(limit = 200, since?: string): Promise<SalesOrde
     lines: byOrder.get(o.id) ?? [],
     source: (o.source ?? "erp") as SalesOrder["source"], placedBy: o.placed_by ?? null,
     submittedAt: o.submitted_at ?? null, currency: o.currency ?? "MYR",
-    exportedAt: o.exported_at ?? null, exportRef: o.export_ref ?? null,
+    exportedAt: o.exported_at ?? null, exportRef: o.export_ref ?? null, packedAt: o.packed_at ?? null,
   }));
 }
 
