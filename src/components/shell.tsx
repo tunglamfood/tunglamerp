@@ -37,6 +37,7 @@ export const MODULES = [
       { href: "/sales/orders", label: "Sales orders", icon: "doc" as const },
       { href: "/sales/enquiries", label: "Enquiries", icon: "inbox" as const },
       { href: "/sales/payments", label: "Payments", icon: "wallet" as const },
+      { href: "/sales/reports", label: "Sales report", icon: "chart" as const },
       { href: "/sales/customers", label: "Customers", icon: "shop" as const },
       { href: "/sales/products", label: "Products", icon: "box" as const },
       { href: "/sales/prices", label: "Price lists", icon: "wallet" as const },
@@ -56,7 +57,7 @@ const WEBSITE_LINKS: { href: string; label: string; area: Area; icon: IconName }
   { href: `${WEBSITE_URL}/portal`, label: "Dealer portal (live)", area: "sales", icon: "external" },
 ];
 
-type IconName = "home" | "calendar" | "people" | "shop" | "box" | "doc" | "shield" | "wallet" | "spark" | "inbox" | "globe" | "external";
+type IconName = "home" | "calendar" | "people" | "shop" | "box" | "doc" | "shield" | "wallet" | "spark" | "inbox" | "globe" | "external" | "chart";
 
 function Icon({ name }: { name: IconName }) {
   const paths: Record<IconName, string> = {
@@ -72,6 +73,7 @@ function Icon({ name }: { name: IconName }) {
     inbox: "M3 11.5 5.2 4.6A1 1 0 0 1 6.2 4h7.6a1 1 0 0 1 1 .6L17 11.5V16H3v-4.5Zm0 0h4l1 2h4l1-2h4",
     globe: "M10 17a7 7 0 1 0 0-14 7 7 0 0 0 0 14Zm-7-7h14M10 3c2 2 2.8 4.4 2.8 7S12 15 10 17c-2-2-2.8-4.4-2.8-7S8 5 10 3Z",
     external: "M11 4h5v5M16 4l-7 7M14 11.5V15a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h3.5",
+    chart: "M4 16V9m4 7V5m4 11v-5m4 5V7M3 16.5h14",
   };
   return (
     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5"

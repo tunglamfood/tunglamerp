@@ -185,21 +185,29 @@ export async function countNewPortalOrders(): Promise<number> {
   return count ?? 0;
 }
 
-export async function listOrders(limit = 200): Promise<SalesOrder[]> {
+/** The newest orders, with their lines; `since` (yyyy-mm-dd) keeps only orders from that day on. */
+export async function listOrders(limit = 200, since?: string): Promise<SalesOrder[]> {
   const db = serverSupabase();
-  const { data, error } = await db
-    .from("sales_orders").select("*").order("order_date", { ascending: false }).limit(limit);
+  let query = db.from("sales_orders").select("*").order("order_date", { ascending: false }).limit(limit);
+  if (since) query = query.gte("order_date", since);
+  const { data, error } = await query;
   fail("Could not load the orders", error);
   const orders = (data ?? []) as OrderRow[];
   if (orders.length === 0) return [];
 
-  const { data: lineData, error: lineError } = await db
-    .from("sales_order_lines").select("*")
-    .in("order_id", orders.map((o) => o.id)).order("line_no");
-  fail("Could not load the order lines", lineError);
+  // In batches: a long list of ids does not fit in one request's address.
+  const lineData: LineRow[] = [];
+  const ids = orders.map((o) => o.id);
+  for (let i = 0; i < ids.length; i += 250) {
+    const { data: chunk, error: lineError } = await db
+      .from("sales_order_lines").select("*")
+      .in("order_id", ids.slice(i, i + 250)).order("line_no");
+    fail("Could not load the order lines", lineError);
+    lineData.push(...((chunk ?? []) as LineRow[]));
+  }
 
   const byOrder = new Map<number, OrderLine[]>();
-  for (const l of (lineData ?? []) as LineRow[]) {
+  for (const l of lineData) {
     if (!byOrder.has(l.order_id)) byOrder.set(l.order_id, []);
     byOrder.get(l.order_id)!.push({
       id: l.id, lineNo: l.line_no, itemCode: l.item_code,
