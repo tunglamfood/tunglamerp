@@ -1,6 +1,7 @@
 // Sales orders and their lines.
 import { deleteOrder, listOrders, saveOrder } from "@/lib/store-sales";
 import { attempt, guard, num, problem, readBody, str, strOrNull } from "@/lib/route-helpers";
+import { currentUser } from "@/lib/supabase-server";
 import { OrderLine, OrderStatus } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -42,6 +43,9 @@ export async function POST(request: Request) {
   }));
   const usable = lines.filter((l) => l.itemCode && l.qty > 0);
   if (usable.length === 0) return problem("An order needs at least one product with a quantity.");
+  const dealerMessage = strOrNull(b.dealerMessage);
+  if (dealerMessage && dealerMessage.length > 500) return problem("Keep the message to the dealer under 500 characters.");
+  const me = await currentUser();
 
   return attempt(() =>
     saveOrder({
@@ -54,7 +58,8 @@ export async function POST(request: Request) {
       theirRef: strOrNull(b.theirRef),
       note: strOrNull(b.note),
       lines: usable,
-    }),
+      dealerMessage,
+    }, me?.name ?? "Office"),
   );
 }
 

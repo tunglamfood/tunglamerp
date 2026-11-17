@@ -498,6 +498,14 @@ export function OrdersScreen({
               <textarea className={`${inputCls} h-20`} value={editing.note ?? ""}
                 onChange={(e) => setEditing({ ...editing, note: e.target.value || null })} />
             </Field>
+            {editing.id && editing.source && editing.source !== "erp" && (
+              <Field label="Message to the dealer (optional)"
+                hint="Shown on the portal with this change — the dealer sees new quantities and status there anyway.">
+                <textarea className={`${inputCls} h-20`} maxLength={500} value={editing.dealerMessage ?? ""}
+                  placeholder="Only 20 egg tofu left today — sending 20 instead of 30."
+                  onChange={(e) => setEditing({ ...editing, dealerMessage: e.target.value || null })} />
+              </Field>
+            )}
           </div>
         )}
       </Drawer>

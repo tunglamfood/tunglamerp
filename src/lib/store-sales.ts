@@ -1,5 +1,6 @@
 // Customers, products, dealer prices and sales orders.
 import "server-only";
+import { lineChanges } from "./order-changes";
 import { serverSupabase } from "./supabase-server";
 import { fail } from "./db-error";
 import {
@@ -225,7 +226,14 @@ export async function listOrders(limit = 200): Promise<SalesOrder[]> {
  *  write orders from the portal now, and an upsert on a number the portal had
  *  just taken would silently overwrite their order. If the number this screen
  *  proposed is gone, the database hands out the next free one. */
-export async function saveOrder(order: SalesOrder, actor = "Office"): Promise<number> {
+/**
+ * Saves an order. Dealers see its history on the portal, so a change the office
+ * makes is written down there: a new status, and — for an order that already
+ * existed — which quantities changed, with the office's message if there is one.
+ * The dealer sees "Tung Lam"; `by` keeps which person it was, for the office.
+ */
+export async function saveOrder(order: SalesOrder, by = "Office"): Promise<number> {
+  const actor = "Tung Lam";
   const db = serverSupabase();
   const head = {
     customer_code: order.customerCode ?? null,
@@ -237,9 +245,12 @@ export async function saveOrder(order: SalesOrder, actor = "Office"): Promise<nu
 
   let orderId: number;
   let before: { status: string } | null = null;
+  let oldLines: { item_code: string; qty: number; uom: string }[] = [];
   if (order.id) {
     const { data: was } = await db.from("sales_orders").select("status").eq("id", order.id).maybeSingle();
     before = was as { status: string } | null;
+    const { data: was2 } = await db.from("sales_order_lines").select("item_code, qty, uom").eq("order_id", order.id);
+    oldLines = (was2 ?? []) as typeof oldLines;
     const { error } = await db.from("sales_orders").update(head).eq("id", order.id);
     fail("Could not save the order", error);
     orderId = order.id;
@@ -257,10 +268,12 @@ export async function saveOrder(order: SalesOrder, actor = "Office"): Promise<nu
   }
 
   // Both sides see an order's history; the portal shows it to the dealer.
-  if (!before || before.status !== order.status) {
+  const message = order.dealerMessage?.trim() || null;
+  const statusChanged = !before || before.status !== order.status;
+  if (statusChanged) {
     await db.from("sales_order_events").insert({
       order_id: orderId, actor, kind: before ? order.status : "created",
-      detail: before ? { from: before.status } : null,
+      detail: before ? { from: before.status, by, ...(message ? { message } : {}) } : { by },
     });
   }
 
@@ -280,8 +293,21 @@ export async function saveOrder(order: SalesOrder, actor = "Office"): Promise<nu
     );
     fail("Could not save the order lines", ins);
   }
+
+  // Quantities the office changed on an existing order — and a message without a
+  // status change still reaches the dealer.
+  if (before) {
+    const changes = lineChanges(oldLines, lines);
+    if (changes.length > 0 || (message && !statusChanged)) {
+      await db.from("sales_order_events").insert({
+        order_id: orderId, actor, kind: "adjusted",
+        detail: { by, changes, ...(message ? { message } : {}) },
+      });
+    }
+  }
   return orderId;
 }
+
 
 /** Marks orders as sent to AutoCount, so the next export leaves them out. */
 export async function markExported(ids: number[], ref: string): Promise<void> {
