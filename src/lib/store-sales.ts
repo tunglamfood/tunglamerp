@@ -175,6 +175,15 @@ type BatchRow = {
   source: string; confirmed: boolean; noted_at: string;
 };
 
+/** Portal orders the office has not dealt with yet ("New from portal" + "On hold"); drives the sidebar badge. */
+export async function countNewPortalOrders(): Promise<number> {
+  const { count, error } = await serverSupabase()
+    .from("sales_orders").select("id", { count: "exact", head: true })
+    .in("status", ["submitted", "on_hold"]);
+  fail("Could not count the new orders", error);
+  return count ?? 0;
+}
+
 export async function listOrders(limit = 200): Promise<SalesOrder[]> {
   const db = serverSupabase();
   const { data, error } = await db

@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Assistant } from "@/components/assistant";
 
 /**
@@ -64,7 +64,7 @@ function Icon({ name }: { name: IconName }) {
   );
 }
 
-function NavLinks({ pathname, onNavigate }: { pathname: string; onNavigate?: () => void }) {
+function NavLinks({ pathname, onNavigate, badges = {} }: { pathname: string; onNavigate?: () => void; badges?: Record<string, number> }) {
   return (
     <nav className="flex-1 space-y-6 px-3 py-2">
       {MODULES.map((mod) => (
@@ -101,7 +101,15 @@ function NavLinks({ pathname, onNavigate }: { pathname: string; onNavigate?: () 
                       : "text-white/70 hover:bg-white/8 hover:text-white"
                   }`}>
                   <Icon name={item.icon} />
-                  {item.label}
+                  <span className="flex-1">{item.label}</span>
+                  {(badges[item.href] ?? 0) > 0 && (
+                    <span
+                      className="nums min-w-5 rounded-full bg-red-500 px-1.5 text-center text-[11px] font-bold leading-5 text-white shadow-sm"
+                      title={`${badges[item.href]} new from the portal`}
+                    >
+                      {badges[item.href]}
+                    </span>
+                  )}
                 </Link>
               );
             })}
@@ -112,10 +120,40 @@ function NavLinks({ pathname, onNavigate }: { pathname: string; onNavigate?: () 
   );
 }
 
-export function Shell({ children }: { children: React.ReactNode }) {
+export function Shell({ children, newOrders = 0 }: { children: React.ReactNode; newOrders?: number }) {
   const pathname = usePathname();
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
+
+  // Portal orders waiting for the office. The server sends a fresh number with every page;
+  // in between, check every 30 seconds and whenever the window comes back into focus.
+  const [count, setCount] = useState(newOrders);
+  const [fromServer, setFromServer] = useState(newOrders);
+  if (newOrders !== fromServer) {
+    setFromServer(newOrders);
+    setCount(newOrders);
+  }
+  useEffect(() => {
+    let alive = true;
+    const check = async () => {
+      try {
+        const res = await fetch("/api/sales/orders/new-count", { cache: "no-store" });
+        if (!res.ok) return;
+        const j = (await res.json()) as { count?: number };
+        if (alive && typeof j.count === "number") setCount(j.count);
+      } catch {
+        /* offline: keep the last number */
+      }
+    };
+    const timer = setInterval(check, 30_000);
+    window.addEventListener("focus", check);
+    return () => {
+      alive = false;
+      clearInterval(timer);
+      window.removeEventListener("focus", check);
+    };
+  }, []);
+  const badges = { "/sales/orders": count };
 
   // The assistant fills the screen and scrolls inside itself, so the page
   // around it must not scroll as well — two scrollbars fighting is worse than
@@ -148,7 +186,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
       {/* Desktop sidebar */}
       <aside className="no-print fixed inset-y-0 left-0 z-40 hidden w-60 flex-col bg-shell md:flex">
         <div className="px-5 py-5">{brand}</div>
-        <NavLinks pathname={pathname} />
+        <NavLinks pathname={pathname} badges={badges} />
         <div className="border-t border-white/10 px-5 py-4">
           <button onClick={signOut}
             className="text-xs font-semibold text-shell-mute transition hover:text-white">
@@ -160,7 +198,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
       {/* Phone top bar */}
       <header className="no-print sticky top-0 z-40 flex h-14 items-center gap-3 bg-shell px-4 md:hidden">
         <button onClick={() => setMenuOpen((v) => !v)} aria-label="Menu"
-          className="rounded-lg p-1.5 text-white/80 hover:bg-white/10">
+          className="relative rounded-lg p-1.5 text-white/80 hover:bg-white/10">
+          {count > 0 && <span className="absolute right-0.5 top-0.5 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-shell" />}
           <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8"
             strokeLinecap="round" className="h-5 w-5">
             <path d="M3 6h14M3 10h14M3 14h14" />
@@ -174,7 +213,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
       {menuOpen && (
         <div className="no-print fixed inset-0 top-14 z-40 bg-shell md:hidden">
-          <NavLinks pathname={pathname} onNavigate={() => setMenuOpen(false)} />
+          <NavLinks pathname={pathname} badges={badges} onNavigate={() => setMenuOpen(false)} />
         </div>
       )}
 
