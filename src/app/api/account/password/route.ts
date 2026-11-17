@@ -20,7 +20,7 @@ export async function POST(request: Request) {
     if (!row || !(await verifyPassword(current, row.password_hash))) {
       return problem("Your current password is not right.");
     }
-    const why = passwordProblem(next, user.username);
+    const why = passwordProblem(next);
     if (why) return problem(why);
     if (next === current) return problem("Choose a password different from the current one.");
 

@@ -48,14 +48,9 @@ export function tempPassword(): string {
   return `${group()}-${group()}-${group()}`;
 }
 
-/** Why a new password will not do, or null when it is fine. */
-export function passwordProblem(password: string, username?: string): string | null {
+/** Why a new password will not do, or null when it is fine. Only its length is checked. */
+export function passwordProblem(password: string): string | null {
   if (password.length < 8) return "Use at least 8 characters.";
   if (password.length > 200) return "That password is too long.";
-  if (/^(.)\1+$/.test(password)) return "Use more than one repeated character.";
-  if (/^(?:12345678|123456789|1234567890|12341234|password|11111111|00000000|tunglam\d*)$/i.test(password)) {
-    return "That password is too easy to guess.";
-  }
-  if (username && password.toLowerCase().includes(username.toLowerCase())) return "Don't put your username in your password.";
   return null;
 }
