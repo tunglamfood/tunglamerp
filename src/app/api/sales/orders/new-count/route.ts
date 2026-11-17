@@ -2,6 +2,7 @@
 // waiting for the office, and website enquiries nobody has picked up yet.
 import { countNewPortalOrders } from "@/lib/store-sales";
 import { countNewLeads } from "@/lib/store-leads";
+import { countNewPayments } from "@/lib/store-payments";
 import { attempt, guard } from "@/lib/route-helpers";
 
 export const runtime = "nodejs";
@@ -11,7 +12,11 @@ export async function GET() {
   const stop = await guard("sales");
   if (stop) return stop;
   return attempt(async () => {
-    const [count, leads] = await Promise.all([countNewPortalOrders(), countNewLeads().catch(() => 0)]);
-    return { count, leads };
+    const [count, leads, payments] = await Promise.all([
+      countNewPortalOrders(),
+      countNewLeads().catch(() => 0),
+      countNewPayments().catch(() => 0),
+    ]);
+    return { count, leads, payments };
   });
 }

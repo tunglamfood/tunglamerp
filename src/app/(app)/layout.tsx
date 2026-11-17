@@ -7,17 +7,22 @@
 import { requireUser } from "@/lib/auth";
 import { countNewPortalOrders } from "@/lib/store-sales";
 import { countNewLeads } from "@/lib/store-leads";
+import { countNewPayments } from "@/lib/store-payments";
 import { Shell } from "@/components/shell";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
   // The badges must never stop the app from opening.
   const sales = user.areas.includes("sales");
-  const [newOrders, newLeads] = sales
-    ? await Promise.all([countNewPortalOrders().catch(() => 0), countNewLeads().catch(() => 0)])
-    : [0, 0];
+  const [newOrders, newLeads, newPayments] = sales
+    ? await Promise.all([
+        countNewPortalOrders().catch(() => 0),
+        countNewLeads().catch(() => 0),
+        countNewPayments().catch(() => 0),
+      ])
+    : [0, 0, 0];
   return (
-    <Shell user={{ name: user.name, areas: user.areas }} newOrders={newOrders} newLeads={newLeads}>
+    <Shell user={{ name: user.name, areas: user.areas }} newOrders={newOrders} newLeads={newLeads} newPayments={newPayments}>
       {children}
     </Shell>
   );

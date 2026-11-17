@@ -36,6 +36,7 @@ export const MODULES = [
     items: [
       { href: "/sales/orders", label: "Sales orders", icon: "doc" as const },
       { href: "/sales/enquiries", label: "Enquiries", icon: "inbox" as const },
+      { href: "/sales/payments", label: "Payments", icon: "wallet" as const },
       { href: "/sales/customers", label: "Customers", icon: "shop" as const },
       { href: "/sales/products", label: "Products", icon: "box" as const },
       { href: "/sales/prices", label: "Price lists", icon: "wallet" as const },
@@ -164,12 +165,13 @@ function NavLinks({
 }
 
 export function Shell({
-  children, user, newOrders = 0, newLeads = 0,
+  children, user, newOrders = 0, newLeads = 0, newPayments = 0,
 }: {
   children: React.ReactNode;
   user: { name: string; areas: Area[] };
   newOrders?: number;
   newLeads?: number;
+  newPayments?: number;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -180,11 +182,14 @@ export function Shell({
   const sales = user.areas.includes("sales");
   const [count, setCount] = useState(newOrders);
   const [leads, setLeads] = useState(newLeads);
-  const [fromServer, setFromServer] = useState(`${newOrders}/${newLeads}`);
-  if (`${newOrders}/${newLeads}` !== fromServer) {
-    setFromServer(`${newOrders}/${newLeads}`);
+  const [slips, setSlips] = useState(newPayments);
+  const serverKey = `${newOrders}/${newLeads}/${newPayments}`;
+  const [fromServer, setFromServer] = useState(serverKey);
+  if (serverKey !== fromServer) {
+    setFromServer(serverKey);
     setCount(newOrders);
     setLeads(newLeads);
+    setSlips(newPayments);
   }
   useEffect(() => {
     if (!sales) return;
@@ -193,10 +198,11 @@ export function Shell({
       try {
         const res = await fetch("/api/sales/orders/new-count", { cache: "no-store" });
         if (!res.ok) return;
-        const j = (await res.json()) as { value?: { count?: number; leads?: number } };
+        const j = (await res.json()) as { value?: { count?: number; leads?: number; payments?: number } };
         if (!alive) return;
         if (typeof j.value?.count === "number") setCount(j.value.count);
         if (typeof j.value?.leads === "number") setLeads(j.value.leads);
+        if (typeof j.value?.payments === "number") setSlips(j.value.payments);
       } catch {
         /* offline: keep the last number */
       }
@@ -209,8 +215,8 @@ export function Shell({
       window.removeEventListener("focus", check);
     };
   }, [sales]);
-  const badges = { "/sales/orders": count, "/sales/enquiries": leads };
-  const waiting = count + leads;
+  const badges = { "/sales/orders": count, "/sales/enquiries": leads, "/sales/payments": slips };
+  const waiting = count + leads + slips;
 
   // The assistant fills the screen and scrolls inside itself, so the page
   // around it must not scroll as well — two scrollbars fighting is worse than
