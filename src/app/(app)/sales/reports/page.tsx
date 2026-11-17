@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { requireArea } from "@/lib/auth";
 import { listCustomers, listGroups, listOrders, listProducts } from "@/lib/store-sales";
-import { listPortalAccounts } from "@/lib/store-portal";
+import { listPortalAccounts, listReps, type SalesRep } from "@/lib/store-portal";
+import type { SalesOrder } from "@/lib/types";
 import { periodRange, salesReport, type SalesReport } from "@/lib/sales-report";
 import { Card, Notice, PageHeader, Stat } from "@/components/ui";
 
@@ -24,24 +25,24 @@ async function load(p: string) {
   const back = new Date(Date.now() - 125 * 86400_000).toISOString().slice(0, 10);
   const since = period.from < back ? period.from : back;
   try {
-    const [orders, customers, products, accounts, groups] = await Promise.all([
-      listOrders(5000, since), listCustomers(), listProducts(), listPortalAccounts(), listGroups(),
+    const [orders, customers, products, accounts, groups, reps] = await Promise.all([
+      listOrders(5000, since), listCustomers(), listProducts(), listPortalAccounts(), listGroups(), listReps(),
     ]);
     const report = salesReport({
       orders, customers, products, from: period.from, to: period.to, today,
       logins: accounts.map((a) => ({ customerCode: a.customerCode, groupCode: a.groupCode, role: a.role, active: a.active, lastLoginAt: a.lastLoginAt ?? null })),
       groupNames: Object.fromEntries(groups.map((g) => [g.code, g.name])),
     });
-    return { period, report, problem: null };
+    return { period, report, reps: repRows(reps, orders, period.from, period.to), problem: null };
   } catch (e) {
-    return { period, report: null, problem: (e as Error).message };
+    return { period, report: null, reps: [], problem: (e as Error).message };
   }
 }
 
 export default async function SalesReportPage({ searchParams }: { searchParams: Promise<{ p?: string }> }) {
   await requireArea("sales");
   const { p = "month" } = await searchParams;
-  const { period, report, problem } = await load(p);
+  const { period, report, reps, problem } = await load(p);
 
   return (
     <>
@@ -60,6 +61,7 @@ export default async function SalesReportPage({ searchParams }: { searchParams: 
         }
       />
       {!report ? <Notice tone="bad">Could not build the report. {problem}</Notice> : <Report r={report} />}
+      {report && reps.length > 0 && <RepTable reps={reps} monthly={period.key !== "90"} />}
     </>
   );
 }
@@ -162,6 +164,61 @@ function Report({ r }: { r: SalesReport }) {
         </Card>
       </div>
     </div>
+  );
+}
+
+type RepRow = { code: string; name: string; dealers: number; orders: number; value: number; target: number | null };
+
+/** Each rep's dealers' orders in the period (any source), against their monthly target. */
+function repRows(reps: SalesRep[], orders: SalesOrder[], from: string, to: string): RepRow[] {
+  return reps
+    .filter((r) => r.active)
+    .map((r) => {
+      const mine = new Set(r.customerCodes);
+      const os = orders.filter((o) => o.customerCode && mine.has(o.customerCode) && o.status !== "cancelled" && o.status !== "draft" && o.orderDate >= from && o.orderDate <= to);
+      const value = Math.round(os.reduce((s, o) => s + o.lines.reduce((t, l) => t + l.qty * l.price, 0), 0) * 100) / 100;
+      return { code: r.code, name: r.name, dealers: r.customerCodes.length, orders: os.length, value, target: r.monthlyTarget };
+    })
+    .sort((a, b) => b.value - a.value);
+}
+
+function RepTable({ reps, monthly }: { reps: RepRow[]; monthly: boolean }) {
+  return (
+    <Card className="mt-6 overflow-hidden">
+      <div className="border-b border-line px-5 py-3">
+        <h2 className="text-sm font-bold">Sales reps</h2>
+        <p className="text-xs text-mute">Orders from the dealers each rep looks after, whoever placed them. Set targets under Dealer portal → Sales reps.</p>
+      </div>
+      <table className="w-full text-sm">
+        <thead><tr className="text-left text-[10px] font-bold uppercase tracking-[0.1em] text-faint">
+          <th className="px-5 py-2">Rep</th><th className="px-3 py-2 text-right">Dealers</th><th className="px-3 py-2 text-right">Orders</th>
+          <th className="px-3 py-2 text-right">Value</th>{monthly && <th className="px-5 py-2">Monthly target</th>}
+        </tr></thead>
+        <tbody>
+          {reps.map((r) => {
+            const pct = r.target ? Math.min(100, Math.round((r.value / r.target) * 100)) : null;
+            return (
+              <tr key={r.code} className="border-t border-line">
+                <td className="px-5 py-2.5 font-medium">{r.name}</td>
+                <td className="nums px-3 py-2.5 text-right text-mute">{r.dealers}</td>
+                <td className="nums px-3 py-2.5 text-right">{r.orders}</td>
+                <td className="nums px-3 py-2.5 text-right font-semibold">{rm(r.value)}</td>
+                {monthly && (
+                  <td className="px-5 py-2.5">
+                    {pct == null ? <span className="text-faint">No target</span> : (
+                      <div className="flex items-center gap-2">
+                        <div className="h-2 w-28 overflow-hidden rounded-full bg-gray-100"><div className="h-full rounded-full bg-accent" style={{ width: `${pct}%` }} /></div>
+                        <span className="nums text-xs text-mute">{pct}% of {rm(r.target!)}</span>
+                      </div>
+                    )}
+                  </td>
+                )}
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </Card>
   );
 }
 

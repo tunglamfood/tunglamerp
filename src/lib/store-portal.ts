@@ -42,6 +42,8 @@ export interface SalesRep {
   phone: string | null;
   active: boolean;
   customerCodes: string[];
+  /** Sales the rep aims for each month, in RM. Empty when none is set. */
+  monthlyTarget: number | null;
 }
 
 export interface PortalVariant {
@@ -123,16 +125,18 @@ export async function listReps(): Promise<SalesRep[]> {
     if (!byRep.has(l.rep_code)) byRep.set(l.rep_code, []);
     byRep.get(l.rep_code)!.push(l.customer_code);
   }
-  return ((data ?? []) as { code: string; name: string; phone: string | null; active: boolean }[]).map((r) => ({
+  return ((data ?? []) as { code: string; name: string; phone: string | null; active: boolean; monthly_target: number | null }[]).map((r) => ({
     code: r.code, name: r.name, phone: r.phone, active: r.active,
     customerCodes: (byRep.get(r.code) ?? []).sort(),
+    monthlyTarget: r.monthly_target == null ? null : Number(r.monthly_target),
   }));
 }
 
 export async function saveRep(r: SalesRep): Promise<void> {
   const db = serverSupabase();
   const { error } = await db.from("sales_reps").upsert({
-    code: r.code, name: r.name, phone: r.phone, active: r.active, updated_at: new Date().toISOString(),
+    code: r.code, name: r.name, phone: r.phone, active: r.active, monthly_target: r.monthlyTarget,
+    updated_at: new Date().toISOString(),
   });
   fail(`Could not save ${r.name}`, error);
   const { error: wipe } = await db.from("sales_rep_customers").delete().eq("rep_code", r.code);

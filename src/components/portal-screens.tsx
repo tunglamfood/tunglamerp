@@ -438,6 +438,7 @@ function RepsScreen({ reps, customers }: { reps: SalesRep[]; customers: Customer
     { key: "name", head: "Name", cell: (r) => r.name },
     { key: "phone", head: "Phone", cell: (r) => <span className="nums text-mute">{r.phone ? showPhone(r.phone) : "—"}</span> },
     { key: "dealers", head: "Dealers", num: true, cell: (r) => <span className="nums">{r.customerCodes.length}</span> },
+    { key: "target", head: "Target / month", num: true, cell: (r) => <span className="nums">{r.monthlyTarget ? `RM ${r.monthlyTarget.toLocaleString("en-MY")}` : "—"}</span> },
     { key: "active", head: "Status", cell: (r) => (r.active ? <Chip tone="teal">Active</Chip> : <Chip>Stopped</Chip>) },
   ];
   return (
@@ -449,7 +450,7 @@ function RepsScreen({ reps, customers }: { reps: SalesRep[]; customers: Customer
       searchIn={(r) => `${r.code} ${r.name} ${r.phone ?? ""}`}
       empty="No sales reps yet."
       addLabel="Add rep"
-      newRow={() => ({ code: "", name: "", phone: null, active: true, customerCodes: [] })}
+      newRow={() => ({ code: "", name: "", phone: null, active: true, customerCodes: [], monthlyTarget: null })}
       editTitle={(r, isNew) => (isNew ? "New sales rep" : r.name)}
       editSub={(r) => `${r.customerCodes.length} dealers`}
       canSave={(r) => (!r.code ? "A short code is needed" : !r.name ? "A name is needed" : null)}
@@ -467,6 +468,10 @@ function RepsScreen({ reps, customers }: { reps: SalesRep[]; customers: Customer
           </div>
           <Field label="Phone" hint="For the office. To let the rep sign in, also add a login for this number.">
             <input className={inputCls} value={r.phone ?? ""} inputMode="tel" onChange={(e) => set({ ...r, phone: e.target.value || null })} />
+          </Field>
+          <Field label="Monthly sales target (RM)" hint="Optional. The rep sees how far along the month is on the portal; the Sales report shows it too.">
+            <input className={`${inputCls} nums`} inputMode="decimal" value={r.monthlyTarget ?? ""}
+              onChange={(e) => set({ ...r, monthlyTarget: Number(e.target.value.replace(/[^\d.]/g, "")) || null })} />
           </Field>
           <Field label="Dealers they look after">
             <DealerPicker value={r.customerCodes} customers={customers} onChange={(customerCodes) => set({ ...r, customerCodes })} />
