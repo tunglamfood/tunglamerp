@@ -147,3 +147,14 @@ only runs when **all** of these are set in Vercel for this app:
 - optional `ONEWAYSMS_SENDER_ID`
 
 The texts are in `src/lib/sms.ts`.
+
+## Production planning
+
+Production → Daily plan turns every order for a delivery date into what each line makes the night before:
+packs and cartons convert into the product inside them, plus the buffer %, plus any manual extra, minus stock
+carried over, at least the minimum run, rounded up to whole batches. Recipes give the raw materials, with
+"before production" items (soaking soybeans) first. Notes flag 初一 / 十五, the Chinese New Year season and
+public holidays. Lock the plan when soaking starts; later orders show as a difference. After production,
+record what was made: the lot number (YYMMDD-LINE-ITEM) and EXP date fill themselves in, and Production →
+Trace a lot lists the dealers who received it. Set products up under Production → Recipes & setup.
+The maths is in `src/lib/production.ts` (tested); staff need the "Production" area.

@@ -2,11 +2,12 @@
 // server (every page and data route) and the sidebar, so all three agree.
 // No server-only imports here: the proxy and the browser both use it.
 
-export type Area = "hr" | "sales" | "website" | "admin";
+export type Area = "hr" | "sales" | "production" | "website" | "admin";
 
 export const AREAS: { id: Area; label: string; hint: string }[] = [
   { id: "hr", label: "HR & payroll", hint: "Workers, monthly pay, payslips, public holidays" },
   { id: "sales", label: "Sales & dealers", hint: "Orders, customers, prices, dealer portal, enquiries" },
+  { id: "production", label: "Production", hint: "Daily production plan, recipes, lots — no prices or wages" },
   { id: "website", label: "Website content", hint: "The content admin at tunglamfood.my/admin" },
   { id: "admin", label: "Staff logins", hint: "Add people, set what they can open, reset passwords" },
 ];
@@ -27,6 +28,8 @@ const RULES: [prefix: string, area: Area][] = [
   ["/api/template", "hr"],
   ["/sales", "sales"],
   ["/api/sales", "sales"],
+  ["/production", "production"],
+  ["/api/production", "production"],
   ["/staff", "admin"],
   ["/api/staff", "admin"],
 ];
@@ -39,7 +42,7 @@ export function areaFor(path: string): Area | null {
 }
 
 export function isArea(v: unknown): v is Area {
-  return v === "hr" || v === "sales" || v === "website" || v === "admin";
+  return v === "hr" || v === "sales" || v === "production" || v === "website" || v === "admin";
 }
 
 /** True when these areas let someone open that path. */
