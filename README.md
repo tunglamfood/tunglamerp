@@ -135,3 +135,15 @@ the `old-card-scanner-app` branch of this repository:
 git switch old-card-scanner-app     # look at it
 git switch main                     # come back
 ```
+
+## Order SMS to dealers (off by default)
+
+When the office confirms, delivers, cancels or changes a portal order, the dealer's portal
+phones (up to three) can get a one-line SMS through OneWay SMS. Every SMS costs money, so it
+only runs when **all** of these are set in Vercel for this app:
+
+- `ORDER_SMS=on`
+- `ONEWAYSMS_API_USERNAME`, `ONEWAYSMS_API_PASSWORD` (the same OneWay account as the portal's sign-in codes)
+- optional `ONEWAYSMS_SENDER_ID`
+
+The texts are in `src/lib/sms.ts`.

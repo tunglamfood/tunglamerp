@@ -1,6 +1,8 @@
 // Customers, products, dealer prices and sales orders.
 import "server-only";
 import { lineChanges } from "./order-changes";
+import { after } from "next/server";
+import { notifyDealer } from "./sms";
 import { serverSupabase } from "./supabase-server";
 import { fail } from "./db-error";
 import {
@@ -278,6 +280,11 @@ export async function saveOrder(order: SalesOrder, by = "Office"): Promise<numbe
   // Both sides see an order's history; the portal shows it to the dealer.
   const message = order.dealerMessage?.trim() || null;
   const statusChanged = !before || before.status !== order.status;
+  if (statusChanged && before) {
+    // Off unless ORDER_SMS=on and OneWay SMS is set up; sent after the reply so saving never waits for it.
+    const kind = order.status;
+    after(() => notifyDealer(orderId, kind).then(() => undefined));
+  }
   if (statusChanged) {
     await db.from("sales_order_events").insert({
       order_id: orderId, actor, kind: before ? order.status : "created",
@@ -306,6 +313,7 @@ export async function saveOrder(order: SalesOrder, by = "Office"): Promise<numbe
   // status change still reaches the dealer.
   if (before) {
     const changes = lineChanges(oldLines, lines);
+    if (changes.length > 0 && !statusChanged) after(() => notifyDealer(orderId, "adjusted").then(() => undefined));
     if (changes.length > 0 || (message && !statusChanged)) {
       await db.from("sales_order_events").insert({
         order_id: orderId, actor, kind: "adjusted",
