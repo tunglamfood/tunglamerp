@@ -2,10 +2,12 @@ import { Notice } from "@/components/ui";
 import { listCustomers, listPrices, listProducts } from "@/lib/store-sales";
 import { PricesScreen } from "@/components/prices-screen";
 import { Customer, PriceRow, Product } from "@/lib/types";
+import { requireArea } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export default async function Page() {
+  await requireArea("sales");
   let customers: Customer[] = [];
   let products: Product[] = [];
   let prices: PriceRow[] = [];

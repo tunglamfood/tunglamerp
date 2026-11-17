@@ -42,7 +42,7 @@ function readWorker(body: unknown): Worker | string {
 }
 
 export async function GET() {
-  if (!(await requireSession())) return unauthorised();
+  if (!(await requireSession("hr"))) return unauthorised();
   try {
     return Response.json({ workers: await listWorkers() });
   } catch (e) {
@@ -51,7 +51,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  if (!(await requireSession())) return unauthorised();
+  if (!(await requireSession("hr"))) return unauthorised();
   let body: unknown;
   try {
     body = await request.json();
@@ -69,7 +69,7 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  if (!(await requireSession())) return unauthorised();
+  if (!(await requireSession("hr"))) return unauthorised();
   const code = new URL(request.url).searchParams.get("code")?.trim();
   if (!code) return problem("Which worker should be removed?");
   try {

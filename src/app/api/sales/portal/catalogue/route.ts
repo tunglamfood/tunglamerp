@@ -7,7 +7,7 @@ export const runtime = "nodejs";
 const CATEGORIES: PortalProduct["category"][] = ["tofu", "steamboat", "dessert", "grocery"];
 
 export async function POST(request: Request) {
-  const stop = await guard();
+  const stop = await guard("sales");
   if (stop) return stop;
   const b = await readBody(request);
   if (!b) return problem("Could not read what was sent.");
@@ -53,7 +53,7 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const stop = await guard();
+  const stop = await guard("sales");
   if (stop) return stop;
   const id = Number(new URL(request.url).searchParams.get("id"));
   if (!id) return problem("Which product should be removed?");

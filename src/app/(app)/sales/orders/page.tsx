@@ -4,10 +4,12 @@ import {
 } from "@/lib/store-sales";
 import { OrderHub } from "@/components/order-hub";
 import { Customer, CustomerGroup, PriceRow, Product, SalesOrder } from "@/lib/types";
+import { requireArea } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export default async function Page() {
+  await requireArea("sales");
   let orders: SalesOrder[] = [];
   let customers: Customer[] = [];
   let products: Product[] = [];

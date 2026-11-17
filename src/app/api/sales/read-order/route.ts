@@ -21,7 +21,7 @@ const MAX_IMAGE_CHARS = 8_000_000;
 const MAX_TEXT_CHARS = 40_000;
 
 export async function POST(request: Request) {
-  const stop = await guard();
+  const stop = await guard("sales");
   if (stop) return stop;
 
   const key = process.env.OPENAI_API_KEY;

@@ -9,7 +9,7 @@ export const runtime = "nodejs";
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 
 export async function POST(request: Request) {
-  const stop = await guard();
+  const stop = await guard("sales");
   if (stop) return stop;
 
   const form = await request.formData().catch(() => null);
@@ -58,7 +58,7 @@ export async function POST(request: Request) {
 
 /** Clears the mark on one order, so the next export takes it again. */
 export async function DELETE(request: Request) {
-  const stop = await guard();
+  const stop = await guard("sales");
   if (stop) return stop;
   const id = Number(new URL(request.url).searchParams.get("id"));
   if (!Number.isInteger(id) || id <= 0) return problem("Which order?");

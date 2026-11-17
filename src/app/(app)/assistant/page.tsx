@@ -1,6 +1,9 @@
 // The assistant's own page: past conversations down the side, the current one
 // beside it. The floating Ask button is a shortcut to the same thing.
+import { redirect } from "next/navigation";
 import { listSessions } from "@/lib/store-assistant";
+import { requireUser } from "@/lib/auth";
+import { canUseAssistant } from "@/lib/areas";
 import { AssistantPage } from "@/components/assistant-page";
 import { Notice } from "@/components/ui";
 import { DEFAULT_MODEL, MODELS } from "@/lib/assistant-models";
@@ -8,10 +11,12 @@ import { DEFAULT_MODEL, MODELS } from "@/lib/assistant-models";
 export const dynamic = "force-dynamic";
 
 export default async function Page() {
+  const me = await requireUser();
+  if (!canUseAssistant(me.areas)) redirect("/home?denied=1");
   let sessions: Awaited<ReturnType<typeof listSessions>> = [];
   let problem: string | null = null;
   try {
-    sessions = await listSessions();
+    sessions = await listSessions(me.id);
   } catch (e) {
     problem = (e as Error).message;
   }

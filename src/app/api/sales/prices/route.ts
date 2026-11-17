@@ -5,14 +5,14 @@ import { attempt, guard, num, problem, readBody, str, strOrNull } from "@/lib/ro
 export const runtime = "nodejs";
 
 export async function GET(request: Request) {
-  const stop = await guard();
+  const stop = await guard("sales");
   if (stop) return stop;
   const customer = new URL(request.url).searchParams.get("customer") ?? "";
   return attempt(async () => ({ prices: await listPrices(customer || undefined) }));
 }
 
 export async function POST(request: Request) {
-  const stop = await guard();
+  const stop = await guard("sales");
   if (stop) return stop;
   const b = await readBody(request);
   if (!b) return problem("Could not read what was sent.");
@@ -30,7 +30,7 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const stop = await guard();
+  const stop = await guard("sales");
   if (stop) return stop;
   const id = Number(new URL(request.url).searchParams.get("id"));
   if (!id) return problem("Which price should be removed?");

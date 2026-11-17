@@ -7,7 +7,7 @@ import { guard } from "@/lib/route-helpers";
 export const runtime = "nodejs";
 
 export async function GET(request: Request) {
-  const stop = await guard();
+  const stop = await guard("hr");
   if (stop) return stop;
 
   const url = new URL(request.url);

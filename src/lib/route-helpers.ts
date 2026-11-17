@@ -1,16 +1,24 @@
 // The same three lines every record route needs: check the cookie, read the
 // body, and turn any failure into a sentence rather than a stack trace.
 import "server-only";
-import { requireSession } from "./supabase-server";
+import { currentUser } from "./supabase-server";
+import type { Area } from "./areas";
 
 export const unauthorised = () =>
   Response.json({ error: "Please sign in again." }, { status: 401 });
 
+export const forbidden = () =>
+  Response.json({ error: "Your login does not cover this. Ask whoever manages staff logins." }, { status: 403 });
+
 export const problem = (message: string, status = 400) =>
   Response.json({ error: message }, { status });
 
-export async function guard(): Promise<Response | null> {
-  return (await requireSession()) ? null : unauthorised();
+/** Signed in — and, when an area is named, allowed into it. Null means go ahead. */
+export async function guard(area?: Area): Promise<Response | null> {
+  const user = await currentUser();
+  if (!user) return unauthorised();
+  if (area && !user.areas.includes(area)) return forbidden();
+  return null;
 }
 
 export async function readBody(request: Request): Promise<Record<string, unknown> | null> {

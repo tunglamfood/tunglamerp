@@ -8,7 +8,7 @@ import { normalizeTime } from "@/lib/time";
 export const runtime = "nodejs";
 
 export async function GET(request: Request) {
-  const stop = await guard();
+  const stop = await guard("hr");
   if (stop) return stop;
   const url = new URL(request.url);
   const month = url.searchParams.get("month") ?? "";
@@ -23,7 +23,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const stop = await guard();
+  const stop = await guard("hr");
   if (stop) return stop;
   const b = await readBody(request);
   if (!b) return problem("Could not read what was sent.");

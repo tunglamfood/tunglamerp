@@ -387,6 +387,27 @@ export const TOOLS: AssistantTool[] = [
   },
 ];
 
+/**
+ * Which part of the business each tool reads or changes. Someone who can open
+ * only sales is never handed a tool that reads wages, and the other way round.
+ */
+export const TOOL_AREA: Record<string, "hr" | "sales"> = {
+  list_workers: "hr", get_month_pay: "hr", list_pay_items: "hr", list_leave: "hr",
+  list_documents: "hr", list_notes: "hr", list_assignments: "hr", list_holidays: "hr",
+  create_worker: "hr", set_worker_status: "hr", add_pay_item: "hr", record_leave: "hr",
+  add_document: "hr", add_note: "hr", add_holiday: "hr",
+  list_customers: "sales", list_products: "sales", get_prices: "sales", list_orders: "sales",
+  set_dealer_price: "sales", create_customer: "sales", create_product: "sales",
+};
+
+/** The tools this person may use. A tool missing from TOOL_AREA is offered to nobody. */
+export function toolsFor(areas: readonly string[]): AssistantTool[] {
+  return TOOLS.filter((t) => {
+    const area = TOOL_AREA[t.name];
+    return !!area && areas.includes(area);
+  });
+}
+
 export const WRITING_TOOLS = new Set([
   "create_worker", "set_worker_status", "add_pay_item", "record_leave",
   "add_document", "add_note", "add_holiday", "set_dealer_price",

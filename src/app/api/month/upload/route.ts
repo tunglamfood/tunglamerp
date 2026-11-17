@@ -15,7 +15,7 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 export async function POST(request: Request) {
-  if (!(await requireSession())) {
+  if (!(await requireSession("hr"))) {
     return Response.json({ error: "Please sign in again." }, { status: 401 });
   }
 

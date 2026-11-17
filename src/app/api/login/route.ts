@@ -1,41 +1,64 @@
-// Checks the password on the server, where it cannot be read out of the page.
-import { cookies } from "next/headers";
-import { SESSION_COOKIE, signSession, timingSafeEqual } from "@/lib/session";
+// Checks a username and password on the server, where neither can be read out
+// of the page.
+import { findLogin, recordFailure, recordSuccess } from "@/lib/store-staff";
+import { DUMMY_HASH, verifyPassword } from "@/lib/password";
+import { issueSession } from "@/lib/auth";
+import { isArea } from "@/lib/areas";
 
 export const runtime = "nodejs";
 
-const THIRTY_DAYS = 60 * 60 * 24 * 30;
+const WRONG = "Wrong username or password.";
 
 export async function POST(request: Request) {
-  const password = process.env.APP_PASSWORD;
-  const secret = process.env.SESSION_SECRET;
   // Missing configuration must lock the door, never open it.
-  if (!password || !secret) {
+  if (!process.env.SESSION_SECRET) {
     return Response.json(
-      { error: "The system is not set up yet — the password has not been configured." },
+      { error: "The system is not set up yet — SESSION_SECRET has not been configured." },
       { status: 500 },
     );
   }
 
-  let given = "";
+  let username = "";
+  let password = "";
   try {
     const body = await request.json();
-    given = typeof body?.password === "string" ? body.password : "";
+    username = typeof body?.username === "string" ? body.username.trim().toLowerCase() : "";
+    password = typeof body?.password === "string" ? body.password : "";
   } catch {
     return Response.json({ error: "Could not read what was sent." }, { status: 400 });
   }
+  if (!username || !password) return Response.json({ error: WRONG }, { status: 401 });
 
-  if (!timingSafeEqual(given, password)) {
-    return Response.json({ error: "Wrong password." }, { status: 401 });
+  try {
+    const row = await findLogin(username);
+    if (!row) {
+      // Take as long as a real check, so the answer does not reveal which usernames exist.
+      await verifyPassword(password, DUMMY_HASH);
+      return Response.json({ error: WRONG }, { status: 401 });
+    }
+    if (row.locked_until && new Date(row.locked_until).getTime() > Date.now()) {
+      return Response.json(
+        { error: "Too many wrong tries. Wait 15 minutes, or ask whoever manages staff logins to reset your password." },
+        { status: 429 },
+      );
+    }
+    if (!(await verifyPassword(password, row.password_hash))) {
+      await recordFailure(row);
+      return Response.json({ error: WRONG }, { status: 401 });
+    }
+    if (!row.active) {
+      return Response.json({ error: "This login has been switched off." }, { status: 403 });
+    }
+
+    await recordSuccess(row.id);
+    await issueSession({
+      id: row.id,
+      sessionVersion: row.session_version,
+      areas: row.areas.filter(isArea),
+      mustChange: row.must_change_password,
+    });
+    return Response.json({ ok: true, mustChange: row.must_change_password });
+  } catch (e) {
+    return Response.json({ error: `Could not sign in: ${(e as Error).message}` }, { status: 500 });
   }
-
-  const token = await signSession(Date.now() + THIRTY_DAYS * 1000, secret);
-  (await cookies()).set(SESSION_COOKIE, token, {
-    httpOnly: true,
-    secure: true,
-    sameSite: "lax",
-    path: "/",
-    maxAge: THIRTY_DAYS,
-  });
-  return Response.json({ ok: true });
 }

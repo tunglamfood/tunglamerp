@@ -8,6 +8,7 @@ import { MonthHub } from "@/components/month-hub";
 import { MonthView, hasAnything } from "@/lib/month-view";
 import { PayItem, Worker } from "@/lib/types";
 import { Notice } from "@/components/ui";
+import { requireArea } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +29,7 @@ function recentMonths(from: string, count = 24): string[] {
 }
 
 export default async function MonthPage() {
+  await requireArea("hr");
   const month = thisMonthKey();
   let view: MonthView | null = null;
   let items: PayItem[] = [];

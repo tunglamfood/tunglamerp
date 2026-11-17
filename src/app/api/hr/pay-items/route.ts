@@ -5,14 +5,14 @@ import { MONTH_KEY, attempt, guard, num, problem, readBody, str, strOrNull } fro
 export const runtime = "nodejs";
 
 export async function GET(request: Request) {
-  const stop = await guard();
+  const stop = await guard("hr");
   if (stop) return stop;
   const month = new URL(request.url).searchParams.get("month") ?? "";
   return attempt(async () => ({ items: await listPayItems(month || undefined) }));
 }
 
 export async function POST(request: Request) {
-  const stop = await guard();
+  const stop = await guard("hr");
   if (stop) return stop;
   const b = await readBody(request);
   if (!b) return problem("Could not read what was sent.");
@@ -36,7 +36,7 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const stop = await guard();
+  const stop = await guard("hr");
   if (stop) return stop;
   const id = Number(new URL(request.url).searchParams.get("id"));
   if (!id) return problem("Which line should be removed?");

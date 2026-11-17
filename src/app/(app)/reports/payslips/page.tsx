@@ -10,6 +10,7 @@ import { monthLabel } from "@/lib/time";
 import { Notice } from "@/components/ui";
 import { PrintButton } from "@/components/print-button";
 import { PayslipPicker } from "@/components/payslip-picker";
+import { requireArea } from "@/lib/auth";
 
 /** The last two years of months, newest first. */
 function recentMonths(from: string, count = 24): string[] {
@@ -35,6 +36,7 @@ export default async function PayslipsPage({
 }: {
   searchParams: Promise<{ month?: string; code?: string }>;
 }) {
+  await requireArea("hr");
   const params = await searchParams;
   const now = new Date();
   const month =

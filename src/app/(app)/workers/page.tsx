@@ -8,10 +8,12 @@ import { Notice } from "@/components/ui";
 import {
   Assignment, LeaveRecord, Worker, WorkerDocument, WorkerNote, WorkerStatusOption,
 } from "@/lib/types";
+import { requireArea } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export default async function WorkersPage() {
+  await requireArea("hr");
   let workers: Worker[] = [];
   let statuses: WorkerStatusOption[] = [];
   let documents: WorkerDocument[] = [];

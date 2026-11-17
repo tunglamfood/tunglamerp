@@ -5,14 +5,14 @@ import { attempt, guard, problem, readBody, str, strOrNull } from "@/lib/route-h
 export const runtime = "nodejs";
 
 export async function GET(request: Request) {
-  const stop = await guard();
+  const stop = await guard("hr");
   if (stop) return stop;
   const code = new URL(request.url).searchParams.get("code") ?? "";
   return attempt(async () => ({ assignments: await listAssignments(code || undefined) }));
 }
 
 export async function POST(request: Request) {
-  const stop = await guard();
+  const stop = await guard("hr");
   if (stop) return stop;
   const b = await readBody(request);
   if (!b) return problem("Could not read what was sent.");
@@ -34,7 +34,7 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const stop = await guard();
+  const stop = await guard("hr");
   if (stop) return stop;
   const id = Number(new URL(request.url).searchParams.get("id"));
   if (!id) return problem("Which record should be removed?");

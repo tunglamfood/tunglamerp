@@ -35,11 +35,13 @@ export function titleFrom(question: string): string {
   return `${clean.slice(0, 57)}…`;
 }
 
-export async function listSessions(limit = 60): Promise<AssistantSession[]> {
+/** Each person sees only their own conversations. */
+export async function listSessions(userId: number, limit = 60): Promise<AssistantSession[]> {
   const db = serverSupabase();
   const { data, error } = await db
     .from("assistant_sessions")
     .select("*")
+    .eq("user_id", userId)
     .order("updated_at", { ascending: false })
     .limit(limit);
   fail("Could not load the past conversations", error);
@@ -75,7 +77,16 @@ export async function listSessions(limit = 60): Promise<AssistantSession[]> {
   }));
 }
 
-export async function loadMessages(sessionId: number): Promise<AssistantMessage[]> {
+/** True when this conversation was started by this person. */
+export async function ownsSession(sessionId: number, userId: number): Promise<boolean> {
+  const { data, error } = await serverSupabase()
+    .from("assistant_sessions").select("id").eq("id", sessionId).eq("user_id", userId).maybeSingle();
+  fail("Could not check that conversation", error);
+  return !!data;
+}
+
+export async function loadMessages(sessionId: number, userId: number): Promise<AssistantMessage[]> {
+  if (!(await ownsSession(sessionId, userId))) throw new Error("That conversation is not one of yours.");
   const { data, error } = await serverSupabase()
     .from("assistant_messages")
     .select("*")
@@ -93,10 +104,10 @@ export async function loadMessages(sessionId: number): Promise<AssistantMessage[
   }));
 }
 
-export async function createSession(title: string, model: string): Promise<number> {
+export async function createSession(title: string, model: string, userId: number): Promise<number> {
   const { data, error } = await serverSupabase()
     .from("assistant_sessions")
-    .insert({ title, model })
+    .insert({ title, model, user_id: userId })
     .select("id")
     .single();
   fail("Could not start a conversation", error);
@@ -128,15 +139,17 @@ export async function addMessages(
   fail("Could not update the conversation", touch);
 }
 
-export async function renameSession(id: number, title: string): Promise<void> {
+export async function renameSession(id: number, title: string, userId: number): Promise<void> {
   const { error } = await serverSupabase()
     .from("assistant_sessions")
     .update({ title })
-    .eq("id", id);
+    .eq("id", id)
+    .eq("user_id", userId);
   fail("Could not rename that conversation", error);
 }
 
-export async function deleteSession(id: number): Promise<void> {
-  const { error } = await serverSupabase().from("assistant_sessions").delete().eq("id", id);
+export async function deleteSession(id: number, userId: number): Promise<void> {
+  const { error } = await serverSupabase()
+    .from("assistant_sessions").delete().eq("id", id).eq("user_id", userId);
   fail("Could not remove that conversation", error);
 }

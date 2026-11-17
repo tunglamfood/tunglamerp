@@ -8,6 +8,9 @@ import { loadMonthView } from "@/lib/month-loader";
 import { alertsFor, figuresFor, Alert } from "@/lib/dashboard";
 import { hasAnything } from "@/lib/month-view";
 import { monthLabel } from "@/lib/time";
+import { requireUser } from "@/lib/auth";
+import { WEBSITE_URL, canOpen } from "@/lib/areas";
+import { Notice } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -20,35 +23,54 @@ const TONE: Record<Alert["level"], { card: string; dot: string; label: string }>
   info: { card: "border-accent-line bg-accent-soft", dot: "bg-accent", label: "text-accent" },
 };
 
-export default async function DashboardPage() {
+export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ denied?: string }> }) {
+  const me = await requireUser();
+  const { denied } = await searchParams;
+  const hr = me.areas.includes("hr");
+  const sales = me.areas.includes("sales");
   const today = new Date().toISOString().slice(0, 10);
   const monthKey = today.slice(0, 7);
 
+  // Only what this login may see is even read: a sales login never loads wages.
+  const none = <T,>(): Promise<T[]> => Promise.resolve([]);
   const [workers, statuses, documents, assignments, customers, products, prices, orders] =
     await Promise.all([
-      listWorkers(), listStatuses(), listDocuments(), listAssignments(),
-      listCustomers(), listProducts(), listPrices(), listOrders(),
+      hr ? listWorkers() : none<Awaited<ReturnType<typeof listWorkers>>[number]>(),
+      hr ? listStatuses() : none<Awaited<ReturnType<typeof listStatuses>>[number]>(),
+      hr ? listDocuments() : none<Awaited<ReturnType<typeof listDocuments>>[number]>(),
+      hr ? listAssignments() : none<Awaited<ReturnType<typeof listAssignments>>[number]>(),
+      sales ? listCustomers() : none<Awaited<ReturnType<typeof listCustomers>>[number]>(),
+      sales ? listProducts() : none<Awaited<ReturnType<typeof listProducts>>[number]>(),
+      sales ? listPrices() : none<Awaited<ReturnType<typeof listPrices>>[number]>(),
+      sales ? listOrders() : none<Awaited<ReturnType<typeof listOrders>>[number]>(),
     ]).catch(() => [[], [], [], [], [], [], [], []] as never);
 
   const working = new Set(statuses.filter((s) => s.countsAsWorking).map((s) => s.name));
 
   // The month is only worth mentioning once something has been uploaded for it.
   let monthFlags: number | null = null;
-  try {
-    const view = await loadMonthView(monthKey);
-    monthFlags = hasAnything({ ...view, extras: {} }) ? view.flags.length : null;
-  } catch {
-    monthFlags = null;
+  if (hr) {
+    try {
+      const view = await loadMonthView(monthKey);
+      monthFlags = hasAnything({ ...view, extras: {} }) ? view.flags.length : null;
+    } catch {
+      monthFlags = null;
+    }
   }
 
   const figures = figuresFor({ workers, working, customers, products, orders, prices, today });
   const alerts = alertsFor({
     documents, workers, working, customers, products, prices, assignments,
     today, monthFlags, monthKey,
-  });
+  }).filter((a) => canOpen(me.areas, a.href));
 
   return (
     <>
+      {denied && (
+        <div className="mb-5">
+          <Notice tone="warn">Your login does not cover that page. Ask whoever manages staff logins if you need it.</Notice>
+        </div>
+      )}
       <div className="mb-7">
         <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-faint">
           Tung Lam Food Industries
@@ -85,19 +107,46 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      <h2 className="mb-3 text-[11px] font-bold uppercase tracking-[0.14em] text-faint">
-        The factory
-      </h2>
-      <div className="mb-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat label="Working" value={String(figures.working)}
-          sub={`of ${figures.workers} on the list`} />
-        <Stat label="Not on scanner" value={String(figures.notEnrolled)}
-          sub={figures.notEnrolled === 0 ? "everyone is enrolled" : "cannot be counted yet"}
-          tone={figures.notEnrolled === 0 ? "text-good" : "text-warn"} />
-        <Stat label="Customers" value={String(figures.customers)} sub="still buying" />
-        <Stat label="Products" value={String(figures.products)} sub="still sold" />
-      </div>
+      {!hr && !sales && (
+        <Card className="mb-8 p-5">
+          <div className="text-base font-bold tracking-tight">Your login is for the website</div>
+          <p className="mt-1 text-[13px] text-mute">
+            Products, recipes, guides and enquiries on tunglamfood.my are edited in its content admin. Sign in there with the same username and password.
+          </p>
+          <a href={`${WEBSITE_URL}/admin`} target="_blank" rel="noopener"
+            className="mt-4 inline-flex rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-accent-hover">
+            Open the website admin &rarr;
+          </a>
+        </Card>
+      )}
 
+      {(hr || sales) && (
+        <>
+          <h2 className="mb-3 text-[11px] font-bold uppercase tracking-[0.14em] text-faint">
+            The factory
+          </h2>
+          <div className="mb-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {hr && (
+              <>
+                <Stat label="Working" value={String(figures.working)}
+                  sub={`of ${figures.workers} on the list`} />
+                <Stat label="Not on scanner" value={String(figures.notEnrolled)}
+                  sub={figures.notEnrolled === 0 ? "everyone is enrolled" : "cannot be counted yet"}
+                  tone={figures.notEnrolled === 0 ? "text-good" : "text-warn"} />
+              </>
+            )}
+            {sales && (
+              <>
+                <Stat label="Customers" value={String(figures.customers)} sub="still buying" />
+                <Stat label="Products" value={String(figures.products)} sub="still sold" />
+              </>
+            )}
+          </div>
+        </>
+      )}
+
+      {sales && (
+      <>
       <h2 className="mb-3 text-[11px] font-bold uppercase tracking-[0.14em] text-faint">
         This month&rsquo;s selling
       </h2>
@@ -117,10 +166,14 @@ export default async function DashboardPage() {
           }
           tone={figures.belowCost === 0 ? "text-good" : "text-bad"} />
       </div>
+      </>
+      )}
 
-      <h2 className="mb-3 text-[11px] font-bold uppercase tracking-[0.14em] text-faint">
-        Where everything lives
-      </h2>
+      {(hr || sales) && (
+        <h2 className="mb-3 text-[11px] font-bold uppercase tracking-[0.14em] text-faint">
+          Where everything lives
+        </h2>
+      )}
       <div className="grid gap-3 sm:grid-cols-2">
         {[
           {
@@ -143,7 +196,17 @@ export default async function DashboardPage() {
             title: "Price lists",
             body: "What each dealer pays for each product, and from when. Change one and old orders keep the price they were sold at.",
           },
-        ].map((c) => (
+          {
+            href: "/sales/enquiries",
+            title: "Enquiries",
+            body: "Messages from the contact forms on tunglamfood.my. Pick them up, note what happened, and make new dealers in one go.",
+          },
+          {
+            href: "/staff",
+            title: "Staff logins",
+            body: "Who can sign in, and what each person can open. Sales staff never see wages.",
+          },
+        ].filter((c) => canOpen(me.areas, c.href)).map((c) => (
           <Link key={c.href} href={c.href} className="group">
             <Card className="h-full p-5 transition group-hover:border-accent-line group-hover:shadow-sm">
               <div className="flex items-center justify-between">

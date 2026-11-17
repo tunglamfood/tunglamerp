@@ -5,14 +5,14 @@ import { attempt, guard, problem, readBody, str, strOrNull } from "@/lib/route-h
 export const runtime = "nodejs";
 
 export async function GET(request: Request) {
-  const stop = await guard();
+  const stop = await guard("hr");
   if (stop) return stop;
   const year = new URL(request.url).searchParams.get("year") ?? "";
   return attempt(async () => ({ holidays: await listHolidays(year || undefined) }));
 }
 
 export async function POST(request: Request) {
-  const stop = await guard();
+  const stop = await guard("hr");
   if (stop) return stop;
   const b = await readBody(request);
   if (!b) return problem("Could not read what was sent.");
@@ -31,7 +31,7 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const stop = await guard();
+  const stop = await guard("hr");
   if (stop) return stop;
   const onDate = new URL(request.url).searchParams.get("date") ?? "";
   if (!onDate) return problem("Which holiday should be removed?");

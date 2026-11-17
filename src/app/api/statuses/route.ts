@@ -6,7 +6,7 @@ import { listStatuses, upsertStatus } from "@/lib/store";
 export const runtime = "nodejs";
 
 export async function GET() {
-  if (!(await requireSession())) {
+  if (!(await requireSession("hr"))) {
     return Response.json({ error: "Please sign in again." }, { status: 401 });
   }
   try {
@@ -17,7 +17,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  if (!(await requireSession())) {
+  if (!(await requireSession("hr"))) {
     return Response.json({ error: "Please sign in again." }, { status: 401 });
   }
   let body: Record<string, unknown>;

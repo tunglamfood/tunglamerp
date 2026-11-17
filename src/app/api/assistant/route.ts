@@ -7,10 +7,11 @@
 // No temperature, top_p or any other sampling setting is sent. The model's own
 // defaults are left alone on purpose.
 import OpenAI from "openai";
-import { requireSession } from "@/lib/supabase-server";
-import { TOOLS, runTool } from "@/lib/assistant-tools";
+import { currentUser } from "@/lib/supabase-server";
+import { runTool, toolsFor } from "@/lib/assistant-tools";
 import { DEFAULT_MODEL, MODELS, isKnownModel } from "@/lib/assistant-models";
-import { addMessages, createSession, titleFrom } from "@/lib/store-assistant";
+import { addMessages, createSession, ownsSession, titleFrom } from "@/lib/store-assistant";
+import { canUseAssistant } from "@/lib/areas";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -82,8 +83,8 @@ interface Turn {
   content: string;
 }
 
-const asFunctions = () =>
-  TOOLS.map((t) => ({
+const asFunctions = (tools: ReturnType<typeof toolsFor>) =>
+  tools.map((t) => ({
     type: "function" as const,
     function: { name: t.name, description: t.description, parameters: t.parameters },
   }));
@@ -114,9 +115,22 @@ function explain(e: unknown): { message: string; status: number } {
 }
 
 export async function POST(request: Request) {
-  if (!(await requireSession())) {
+  const me = await currentUser();
+  if (!me) {
     return Response.json({ error: "Please sign in again." }, { status: 401 });
   }
+  if (!canUseAssistant(me.areas)) {
+    return Response.json({ error: "Your login does not include the assistant." }, { status: 403 });
+  }
+  const userId = me.id;
+  const tools = toolsFor(me.areas);
+  const allowed = new Set(tools.map((t) => t.name));
+  const covers =
+    me.areas.includes("hr") && me.areas.includes("sales")
+      ? ""
+      : me.areas.includes("hr")
+        ? "\n\nThis person's login covers HR only. You have no sales tools: if they ask about customers, prices or orders, say their login does not cover sales."
+        : "\n\nThis person's login covers sales only. You have no HR tools: if they ask about workers, pay, leave or permits, say their login does not cover HR, and never guess.";
 
   const key = process.env.OPENAI_API_KEY;
   if (!key) {
@@ -141,6 +155,9 @@ export async function POST(request: Request) {
     return Response.json({ error: "Could not read what was sent." }, { status: 400 });
   }
 
+  if (body.sessionId && !(await ownsSession(body.sessionId, me.id).catch(() => false))) {
+    return Response.json({ error: "That conversation is not one of yours." }, { status: 403 });
+  }
   const model = body.model && isKnownModel(body.model) ? body.model : DEFAULT_MODEL;
   const history = (body.messages ?? []).slice(-20);
   if (history.length === 0) {
@@ -149,7 +166,7 @@ export async function POST(request: Request) {
 
   const client = new OpenAI({ apiKey: key });
   const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
-    { role: "system", content: SYSTEM },
+    { role: "system", content: SYSTEM + covers },
     ...history.map((m) => ({ role: m.role, content: m.content }) as OpenAI.Chat.ChatCompletionMessageParam),
   ];
 
@@ -164,7 +181,7 @@ export async function POST(request: Request) {
    */
   async function keep(reply: string): Promise<{ sessionId: number | null; saved: boolean }> {
     try {
-      const sessionId = body.sessionId ?? (await createSession(titleFrom(asked), model));
+      const sessionId = body.sessionId ?? (await createSession(titleFrom(asked), model, userId));
       await addMessages(sessionId, [
         { role: "user", content: asked, changed: [], toolsUsed: [], model },
         { role: "assistant", content: reply, changed, toolsUsed: used, model },
@@ -180,7 +197,7 @@ export async function POST(request: Request) {
       const response = await client.chat.completions.create({
         model,
         messages,
-        tools: asFunctions(),
+        tools: asFunctions(tools),
       });
 
       const choice = response.choices[0];
@@ -213,6 +230,15 @@ export async function POST(request: Request) {
             role: "tool",
             tool_call_id: call.id,
             content: "Those arguments were not readable. Send them again as plain JSON.",
+          });
+          continue;
+        }
+
+        if (!allowed.has(call.function.name)) {
+          messages.push({
+            role: "tool",
+            tool_call_id: call.id,
+            content: "This person's login does not cover that. Tell them so; do not try another way.",
           });
           continue;
         }
@@ -256,7 +282,7 @@ export async function POST(request: Request) {
  * server now, so the picker is there on the first paint.
  */
 export async function GET() {
-  if (!(await requireSession())) {
+  if (!(await currentUser())) {
     return Response.json({ error: "Please sign in again." }, { status: 401 });
   }
   return Response.json({

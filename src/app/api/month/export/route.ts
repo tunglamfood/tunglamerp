@@ -7,7 +7,7 @@ import { writeMillionXls } from "@/lib/million-writer";
 export const runtime = "nodejs";
 
 export async function GET(request: Request) {
-  if (!(await requireSession())) return new Response("Please sign in.", { status: 401 });
+  if (!(await requireSession("hr"))) return new Response("Please sign in.", { status: 401 });
 
   const monthKey = new URL(request.url).searchParams.get("month");
   if (!isMonthKey(monthKey)) return new Response("Choose a month first.", { status: 400 });

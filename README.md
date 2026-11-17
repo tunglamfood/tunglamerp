@@ -71,7 +71,14 @@ npm install     # first time only
 npm run dev     # then open http://localhost:3000
 ```
 
-Sign in with the password in `.env.local`.
+Everyone signs in with their own username and password. Logins, and what each person can open
+(HR & payroll, Sales & dealers, Website content, Staff logins), are managed under Admin → Staff logins.
+A new login or a reset gives a one-time password that must be changed at first sign-in.
+The same logins sign in to tunglamfood.my/admin (those with "Website content").
+How it works: `src/lib/areas.ts` (which path belongs to which area), `src/proxy.ts` and `guard(area)` in every
+data route, `currentUser()` in `src/lib/supabase-server.ts` (re-reads `erp_users` on every request),
+migration `supabase/migrations/20261118_staff_logins_leads.sql`. `.env.local` needs `SESSION_SECRET`;
+`APP_PASSWORD` is no longer used.
 
 All 85 workers are already loaded. To reload them from the June key-in sheet:
 

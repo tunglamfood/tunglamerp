@@ -3,6 +3,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Assistant } from "@/components/assistant";
+import { WEBSITE_URL, canOpen, canUseAssistant, type Area } from "@/lib/areas";
 
 /**
  * The ERP's own map. Kept deliberately short: everything about a worker lives
@@ -34,15 +35,27 @@ export const MODULES = [
     ready: true,
     items: [
       { href: "/sales/orders", label: "Sales orders", icon: "doc" as const },
+      { href: "/sales/enquiries", label: "Enquiries", icon: "inbox" as const },
       { href: "/sales/customers", label: "Customers", icon: "shop" as const },
       { href: "/sales/products", label: "Products", icon: "box" as const },
       { href: "/sales/prices", label: "Price lists", icon: "wallet" as const },
       { href: "/sales/portal", label: "Dealer portal", icon: "people" as const },
     ],
   },
+  {
+    name: "Admin",
+    ready: true,
+    items: [{ href: "/staff", label: "Staff logins", icon: "shield" as const }],
+  },
 ] as const;
 
-type IconName = "home" | "calendar" | "people" | "shop" | "box" | "doc" | "shield" | "wallet" | "spark";
+/** The website and the dealer portal, which live on tunglamfood.my. */
+const WEBSITE_LINKS: { href: string; label: string; area: Area; icon: IconName }[] = [
+  { href: `${WEBSITE_URL}/admin`, label: "Website admin", area: "website", icon: "globe" },
+  { href: `${WEBSITE_URL}/portal`, label: "Dealer portal (live)", area: "sales", icon: "external" },
+];
+
+type IconName = "home" | "calendar" | "people" | "shop" | "box" | "doc" | "shield" | "wallet" | "spark" | "inbox" | "globe" | "external";
 
 function Icon({ name }: { name: IconName }) {
   const paths: Record<IconName, string> = {
@@ -55,6 +68,9 @@ function Icon({ name }: { name: IconName }) {
     shield: "M10 3 4 5.5V10c0 3.5 2.5 6 6 7 3.5-1 6-3.5 6-7V5.5L10 3Z",
     wallet: "M3 6h12a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H3V6Zm0 0V5a1 1 0 0 1 1-1h9M14 11h.01",
     spark: "M10 2.5 11.6 7l4.4 1.6L11.6 10 10 14.5 8.4 10 4 8.6 8.4 7 10 2.5Z",
+    inbox: "M3 11.5 5.2 4.6A1 1 0 0 1 6.2 4h7.6a1 1 0 0 1 1 .6L17 11.5V16H3v-4.5Zm0 0h4l1 2h4l1-2h4",
+    globe: "M10 17a7 7 0 1 0 0-14 7 7 0 0 0 0 14Zm-7-7h14M10 3c2 2 2.8 4.4 2.8 7S12 15 10 17c-2-2-2.8-4.4-2.8-7S8 5 10 3Z",
+    external: "M11 4h5v5M16 4l-7 7M14 11.5V15a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h3.5",
   };
   return (
     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5"
@@ -64,10 +80,17 @@ function Icon({ name }: { name: IconName }) {
   );
 }
 
-function NavLinks({ pathname, onNavigate, badges = {} }: { pathname: string; onNavigate?: () => void; badges?: Record<string, number> }) {
+function NavLinks({
+  pathname, onNavigate, badges = {}, areas,
+}: { pathname: string; onNavigate?: () => void; badges?: Record<string, number>; areas: readonly string[] }) {
+  const modules = MODULES.map((mod) => ({
+    ...mod,
+    items: mod.items.filter((item) => canOpen(areas, item.href) && (item.href !== "/assistant" || canUseAssistant(areas))),
+  })).filter((mod) => mod.items.length > 0);
+  const outside = WEBSITE_LINKS.filter((l) => areas.includes(l.area));
   return (
-    <nav className="flex-1 space-y-6 px-3 py-2">
-      {MODULES.map((mod) => (
+    <nav className="flex-1 space-y-6 overflow-y-auto px-3 py-2">
+      {modules.map((mod) => (
         <div key={mod.name}>
           {mod.name && (
           <div className="mb-1.5 flex items-center gap-2 px-3">
@@ -105,7 +128,7 @@ function NavLinks({ pathname, onNavigate, badges = {} }: { pathname: string; onN
                   {(badges[item.href] ?? 0) > 0 && (
                     <span
                       className="nums min-w-5 rounded-full bg-red-500 px-1.5 text-center text-[11px] font-bold leading-5 text-white shadow-sm"
-                      title={`${badges[item.href]} new from the portal`}
+                      title={`${badges[item.href]} new`}
                     >
                       {badges[item.href]}
                     </span>
@@ -116,31 +139,64 @@ function NavLinks({ pathname, onNavigate, badges = {} }: { pathname: string; onN
           </div>
         </div>
       ))}
+      {outside.length > 0 && (
+        <div>
+          <div className="mb-1.5 px-3 text-[10px] font-bold uppercase tracking-[0.14em] text-shell-mute">
+            tunglamfood.my
+          </div>
+          <div className="space-y-0.5">
+            {outside.map((l) => (
+              <a key={l.href} href={l.href} target="_blank" rel="noopener"
+                className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-white/70 transition hover:bg-white/8 hover:text-white">
+                <Icon name={l.icon} />
+                <span className="flex-1">{l.label}</span>
+                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"
+                  strokeLinejoin="round" className="h-3.5 w-3.5 text-shell-mute" aria-hidden>
+                  <path d="M8 5h7v7M15 5l-9 9" />
+                </svg>
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
     </nav>
   );
 }
 
-export function Shell({ children, newOrders = 0 }: { children: React.ReactNode; newOrders?: number }) {
+export function Shell({
+  children, user, newOrders = 0, newLeads = 0,
+}: {
+  children: React.ReactNode;
+  user: { name: string; areas: Area[] };
+  newOrders?: number;
+  newLeads?: number;
+}) {
   const pathname = usePathname();
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
 
   // Portal orders waiting for the office. The server sends a fresh number with every page;
   // in between, check every 30 seconds and whenever the window comes back into focus.
+  const sales = user.areas.includes("sales");
   const [count, setCount] = useState(newOrders);
-  const [fromServer, setFromServer] = useState(newOrders);
-  if (newOrders !== fromServer) {
-    setFromServer(newOrders);
+  const [leads, setLeads] = useState(newLeads);
+  const [fromServer, setFromServer] = useState(`${newOrders}/${newLeads}`);
+  if (`${newOrders}/${newLeads}` !== fromServer) {
+    setFromServer(`${newOrders}/${newLeads}`);
     setCount(newOrders);
+    setLeads(newLeads);
   }
   useEffect(() => {
+    if (!sales) return;
     let alive = true;
     const check = async () => {
       try {
         const res = await fetch("/api/sales/orders/new-count", { cache: "no-store" });
         if (!res.ok) return;
-        const j = (await res.json()) as { count?: number };
-        if (alive && typeof j.count === "number") setCount(j.count);
+        const j = (await res.json()) as { value?: { count?: number; leads?: number } };
+        if (!alive) return;
+        if (typeof j.value?.count === "number") setCount(j.value.count);
+        if (typeof j.value?.leads === "number") setLeads(j.value.leads);
       } catch {
         /* offline: keep the last number */
       }
@@ -152,8 +208,9 @@ export function Shell({ children, newOrders = 0 }: { children: React.ReactNode; 
       clearInterval(timer);
       window.removeEventListener("focus", check);
     };
-  }, []);
-  const badges = { "/sales/orders": count };
+  }, [sales]);
+  const badges = { "/sales/orders": count, "/sales/enquiries": leads };
+  const waiting = count + leads;
 
   // The assistant fills the screen and scrolls inside itself, so the page
   // around it must not scroll as well — two scrollbars fighting is worse than
@@ -186,10 +243,20 @@ export function Shell({ children, newOrders = 0 }: { children: React.ReactNode; 
       {/* Desktop sidebar */}
       <aside className="no-print fixed inset-y-0 left-0 z-40 hidden w-60 flex-col bg-shell md:flex">
         <div className="px-5 py-5">{brand}</div>
-        <NavLinks pathname={pathname} badges={badges} />
-        <div className="border-t border-white/10 px-5 py-4">
+        <NavLinks pathname={pathname} badges={badges} areas={user.areas} />
+        <div className="flex items-center gap-2.5 border-t border-white/10 px-4 py-3.5">
+          <Link href="/account" title="My account"
+            className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg p-1 transition hover:bg-white/8">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/10 text-[13px] font-bold text-white">
+              {user.name.slice(0, 1).toUpperCase()}
+            </span>
+            <span className="min-w-0 leading-tight">
+              <span className="block truncate text-[13px] font-semibold text-white">{user.name}</span>
+              <span className="block text-[11px] text-shell-mute">My account</span>
+            </span>
+          </Link>
           <button onClick={signOut}
-            className="text-xs font-semibold text-shell-mute transition hover:text-white">
+            className="shrink-0 rounded-lg px-2 py-1.5 text-xs font-semibold text-shell-mute transition hover:bg-white/8 hover:text-white">
             Sign out
           </button>
         </div>
@@ -199,21 +266,28 @@ export function Shell({ children, newOrders = 0 }: { children: React.ReactNode; 
       <header className="no-print sticky top-0 z-40 flex h-14 items-center gap-3 bg-shell px-4 md:hidden">
         <button onClick={() => setMenuOpen((v) => !v)} aria-label="Menu"
           className="relative rounded-lg p-1.5 text-white/80 hover:bg-white/10">
-          {count > 0 && <span className="absolute right-0.5 top-0.5 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-shell" />}
+          {waiting > 0 && <span className="absolute right-0.5 top-0.5 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-shell" />}
           <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8"
             strokeLinecap="round" className="h-5 w-5">
             <path d="M3 6h14M3 10h14M3 14h14" />
           </svg>
         </button>
         {brand}
-        <button onClick={signOut} className="ml-auto text-xs font-semibold text-shell-mute">
-          Sign out
-        </button>
+        <Link href="/account" aria-label="My account"
+          className="ml-auto flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-[13px] font-bold text-white">
+          {user.name.slice(0, 1).toUpperCase()}
+        </Link>
       </header>
 
       {menuOpen && (
-        <div className="no-print fixed inset-0 top-14 z-40 bg-shell md:hidden">
-          <NavLinks pathname={pathname} badges={badges} onNavigate={() => setMenuOpen(false)} />
+        <div className="no-print fixed inset-0 top-14 z-[45] flex flex-col bg-shell md:hidden">
+          <NavLinks pathname={pathname} badges={badges} areas={user.areas} onNavigate={() => setMenuOpen(false)} />
+          <div className="flex items-center gap-3 border-t border-white/10 px-5 py-4">
+            <span className="min-w-0 flex-1 truncate text-sm font-semibold text-white">{user.name}</span>
+            <button onClick={signOut} className="rounded-lg px-3 py-2 text-sm font-semibold text-shell-mute hover:bg-white/8 hover:text-white">
+              Sign out
+            </button>
+          </div>
         </div>
       )}
 
@@ -229,7 +303,7 @@ export function Shell({ children, newOrders = 0 }: { children: React.ReactNode; 
 
       {/* Reachable from every screen — it is meant to be asked something while
           you are already looking at something else. */}
-      {!fillsScreen && <Assistant />}
+      {!fillsScreen && canUseAssistant(user.areas) && <Assistant />}
     </div>
   );
 }

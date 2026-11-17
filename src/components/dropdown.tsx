@@ -9,6 +9,23 @@ export interface Option {
   note?: string;
   /** Renders as a non-selectable heading. */
   heading?: boolean;
+  /**
+   * A small picture beside the label. Set it — to null when there is none — on
+   * every option of a list that should show pictures, so rows line up.
+   */
+  image?: string | null;
+}
+
+/** The picture beside an option, or an empty tile when it has none. */
+function Thumb({ src, size }: { src: string | null; size: number }) {
+  return src ? (
+    // eslint-disable-next-line @next/next/no-img-element -- remote product photos, any host
+    <img src={src} alt="" width={size} height={size} loading="lazy"
+      className="shrink-0 rounded-md border border-line bg-white object-contain"
+      style={{ width: size, height: size }} />
+  ) : (
+    <span className="shrink-0 rounded-md border border-dashed border-line bg-gray-50" style={{ width: size, height: size }} />
+  );
 }
 
 /**
@@ -80,7 +97,7 @@ export function Dropdown({
   const selectable = options.filter((o) => !o.heading);
   const withSearch = searchable ?? selectable.length > 12;
   const shown = query
-    ? options.filter((o) => !o.heading && o.label.toLowerCase().includes(query.toLowerCase()))
+    ? options.filter((o) => !o.heading && `${o.label} ${o.note ?? ""}`.toLowerCase().includes(query.toLowerCase()))
     : options;
   const current = selectable.find((o) => o.value === value);
 
@@ -146,6 +163,7 @@ export function Dropdown({
           open ? "border-accent ring-1 ring-accent-line" : "border-line hover:border-accent-line"
         }`}
       >
+        {current && current.image !== undefined && <Thumb src={current.image} size={24} />}
         <span className={`flex-1 truncate ${current ? "" : "font-normal text-faint"}`}>
           {current?.label ?? placeholder}
         </span>
@@ -212,6 +230,7 @@ export function Dropdown({
                           : "text-ink hover:bg-accent-soft"
                     }`}
                   >
+                    {o.image !== undefined && <Thumb src={o.image} size={32} />}
                     <span className="flex-1 truncate font-medium">{o.label}</span>
                     {o.note && (
                       <span className={`nums shrink-0 text-xs ${selected ? "text-white/70" : "text-faint"}`}>

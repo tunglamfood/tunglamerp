@@ -10,6 +10,8 @@ import { post, remove } from "@/lib/api";
 import { showPhone } from "@/lib/phone";
 import { Customer, CustomerGroup, Product } from "@/lib/types";
 import type { PortalAccount, PortalAnnouncement, PortalProduct, PortalVariant, SalesRep } from "@/lib/store-portal";
+import type { WebsiteProduct } from "@/lib/website";
+import { WEBSITE_URL } from "@/lib/areas";
 
 const CATEGORY_LABEL: Record<PortalProduct["category"], string> = {
   tofu: "Tofu", steamboat: "Steamboat", dessert: "Dessert", grocery: "Grocery",
@@ -27,7 +29,7 @@ function YesNo({ value, onChange, yes = "Yes", no = "No" }: { value: boolean; on
 }
 
 export function PortalHub({
-  accounts, reps, products, customers, groups, items, announcements,
+  accounts, reps, products, customers, groups, items, announcements, website, websiteProblem,
 }: {
   accounts: PortalAccount[];
   reps: SalesRep[];
@@ -36,6 +38,8 @@ export function PortalHub({
   groups: CustomerGroup[];
   items: Product[];
   announcements: PortalAnnouncement[];
+  website: WebsiteProduct[];
+  websiteProblem: string | null;
 }) {
   return (
     <Tabs
@@ -43,7 +47,7 @@ export function PortalHub({
         { id: "logins", label: "Logins", note: String(accounts.length),
           panel: <AccountsScreen accounts={accounts} reps={reps} customers={customers} groups={groups} /> },
         { id: "catalogue", label: "Catalogue", note: String(products.length),
-          panel: <CatalogueScreen products={products} items={items} /> },
+          panel: <CatalogueScreen products={products} items={items} website={website} websiteProblem={websiteProblem} /> },
         { id: "reps", label: "Sales reps", note: String(reps.length),
           panel: <RepsScreen reps={reps} customers={customers} /> },
         { id: "notices", label: "Announcements", note: String(announcements.filter(showingNow).length),
@@ -149,9 +153,59 @@ function AccountsScreen({
 
 /* ── Catalogue ─────────────────────────────────────────────────────────────── */
 
+/**
+ * Pick the tunglamfood.my product whose photo a portal product (or one pack of
+ * it) shows — by name and picture, instead of typing its web address.
+ */
+const squash = (s: string) => s.toLowerCase().replace(/\s+/g, "");
+
+function WebsitePhotoPicker({
+  value, website, onChange, emptyLabel = "No photo",
+}: { value: string | null; website: WebsiteProduct[]; onChange: (slug: string | null) => void; emptyLabel?: string }) {
+  if (website.length === 0) {
+    // The list could not be loaded: typing the address still works.
+    return (
+      <input className={inputCls} value={value ?? ""} placeholder="Website address, e.g. tl-egg-tofu-120gm"
+        onChange={(e) => onChange(e.target.value.trim() || null)} />
+    );
+  }
+  const known = !value || website.some((w) => w.slug === value);
+  return (
+    <Select
+      searchable
+      value={value ?? ""}
+      placeholder="Choose a website product…"
+      onChange={(v) => onChange(v || null)}
+      options={[
+        { value: "", label: emptyLabel, image: null },
+        ...(known ? [] : [{ value: value!, label: `${value} — not on the website`, image: null }]),
+        ...website.map((w) => ({
+          value: w.slug,
+          label: w.weight && !squash(w.name).includes(squash(w.weight)) ? `${w.name} · ${w.weight}` : w.name,
+          note: w.brand || w.category || undefined,
+          image: w.image,
+        })),
+      ]}
+    />
+  );
+}
+
+function PhotoTile({ src, size = 40 }: { src: string | null | undefined; size?: number }) {
+  return src ? (
+    // eslint-disable-next-line @next/next/no-img-element -- photos come from tunglamfood.my storage
+    <img src={src} alt="" width={size} height={size} loading="lazy"
+      className="shrink-0 rounded-lg border border-line bg-white object-contain" style={{ width: size, height: size }} />
+  ) : (
+    <span className="flex shrink-0 items-center justify-center rounded-lg border border-dashed border-line bg-gray-50 text-[9px] font-semibold uppercase text-faint"
+      style={{ width: size, height: size }}>
+      none
+    </span>
+  );
+}
+
 function VariantsEditor({
-  variants, items, onChange,
-}: { variants: PortalVariant[]; items: Product[]; onChange: (v: PortalVariant[]) => void }) {
+  variants, items, website, onChange,
+}: { variants: PortalVariant[]; items: Product[]; website: WebsiteProduct[]; onChange: (v: PortalVariant[]) => void }) {
   const itemOf = new Map(items.map((i) => [i.itemCode, i]));
   const update = (i: number, patch: Partial<PortalVariant>) =>
     onChange(variants.map((v, j) => (j === i ? { ...v, ...patch } : v)));
@@ -191,8 +245,10 @@ function VariantsEditor({
               onChange={(e) => update(i, { labelZh: e.target.value || null })} />
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-3">
-            <input className={`${inputCls} max-w-[280px]`} placeholder="Website photo slug (optional)"
-              value={v.websiteSlug ?? ""} onChange={(e) => update(i, { websiteSlug: e.target.value || null })} />
+            <div className="min-w-[220px] flex-1">
+              <WebsitePhotoPicker value={v.websiteSlug} website={website} emptyLabel="Same photo as the product"
+                onChange={(slug) => update(i, { websiteSlug: slug })} />
+            </div>
             <label className="flex items-center gap-2 text-sm text-mute">
               <input type="checkbox" checked={v.active} onChange={(e) => update(i, { active: e.target.checked })} />
               Can be ordered
@@ -208,8 +264,19 @@ function VariantsEditor({
   );
 }
 
-function CatalogueScreen({ products, items }: { products: PortalProduct[]; items: Product[] }) {
+function CatalogueScreen({
+  products, items, website, websiteProblem,
+}: { products: PortalProduct[]; items: Product[]; website: WebsiteProduct[]; websiteProblem: string | null }) {
+  const photoOf = new Map(website.map((w) => [w.slug, w.image]));
+  /** What the portal shows: the product's own photo, else the first pack that has one. */
+  const photo = (p: PortalProduct) =>
+    (p.websiteSlug && photoOf.get(p.websiteSlug)) ||
+    p.variants.map((v) => v.websiteSlug && photoOf.get(v.websiteSlug)).find(Boolean) ||
+    null;
+  const withoutPhoto = website.length > 0 ? products.filter((p) => p.active && !photo(p)).length : 0;
+
   const columns: Column<PortalProduct>[] = [
+    { key: "photo", head: "", width: "w-14", cell: (p) => <PhotoTile src={photo(p)} /> },
     {
       key: "name", head: "Product",
       cell: (p) => (
@@ -239,7 +306,13 @@ function CatalogueScreen({ products, items }: { products: PortalProduct[]; items
   return (
     <RecordScreen<PortalProduct>
       title="Portal catalogue"
-      sub="One product card per entry; each variant is one item code with its own price."
+      sub={
+        <>
+          One product card per entry; each variant is one item code with its own price.
+          {withoutPhoto > 0 && <> <strong className="text-warn">{withoutPhoto} shown on the portal without a photo.</strong></>}
+          {websiteProblem && <> <span className="text-bad">Could not load the products from tunglamfood.my ({websiteProblem}).</span></>}
+        </>
+      }
       rows={products}
       columns={columns}
       searchIn={(p) => `${p.nameEn} ${p.nameMs ?? ""} ${p.nameZh ?? ""} ${p.brand} ${p.variants.map((v) => `${v.itemCode} ${v.labelEn}`).join(" ")}`}
@@ -251,7 +324,15 @@ function CatalogueScreen({ products, items }: { products: PortalProduct[]; items
           value, label, note: String(products.filter((p) => p.category === value).length),
         }))],
         match: (row, v) => (row as PortalProduct).category === v,
-      }]}
+      }, ...(website.length > 0 ? [{
+        key: "photo", width: "w-[160px]",
+        options: [
+          { value: "all", label: "Any photo" },
+          { value: "with", label: "With a photo" },
+          { value: "without", label: "Without a photo", note: String(products.filter((p) => !photo(p)).length) },
+        ],
+        match: (row: unknown, v: string) => (v === "with") === !!photo(row as PortalProduct),
+      }] : [])]}
       newRow={() => ({
         nameEn: "", nameMs: null, nameZh: null, category: "tofu", brand: "", websiteSlug: null,
         restricted: false, sort: (products.length + 1) * 10, active: true,
@@ -288,11 +369,23 @@ function CatalogueScreen({ products, items }: { products: PortalProduct[]; items
                 onChange={(e) => set({ ...p, brand: e.target.value })} />
             </Field>
           </div>
-          <Field label="Website photo" hint="The product's address on tunglamfood.my, e.g. tl-egg-tofu-120gm. Its photo is used.">
-            <input className={inputCls} value={p.websiteSlug ?? ""} onChange={(e) => set({ ...p, websiteSlug: e.target.value || null })} />
+          <Field label="Photo" hint="The tunglamfood.my product whose photo dealers see. Not on the website yet? Add it in the website admin first.">
+            <div className="flex items-start gap-3">
+              <PhotoTile src={photo(p)} size={64} />
+              <div className="min-w-0 flex-1">
+                <WebsitePhotoPicker value={p.websiteSlug} website={website}
+                  onChange={(slug) => set({ ...p, websiteSlug: slug })} />
+                {p.websiteSlug && website.some((w) => w.slug === p.websiteSlug) && (
+                  <a href={`${WEBSITE_URL}/products/${p.websiteSlug}`} target="_blank" rel="noopener"
+                    className="mt-1.5 inline-block text-xs font-semibold text-accent underline underline-offset-2">
+                    View on tunglamfood.my
+                  </a>
+                )}
+              </div>
+            </div>
           </Field>
           <Field label="Variants" hint="Each item code a dealer can choose, in the order they appear.">
-            <VariantsEditor variants={p.variants} items={items} onChange={(variants) => set({ ...p, variants })} />
+            <VariantsEditor variants={p.variants} items={items} website={website} onChange={(variants) => set({ ...p, variants })} />
           </Field>
           <div className="grid gap-5 sm:grid-cols-2">
             <Field label="Shown on the portal?">

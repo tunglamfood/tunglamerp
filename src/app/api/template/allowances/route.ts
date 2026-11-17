@@ -8,7 +8,7 @@ import * as XLSX from "xlsx";
 export const runtime = "nodejs";
 
 export async function GET() {
-  if (!(await requireSession())) return new Response("Please sign in.", { status: 401 });
+  if (!(await requireSession("hr"))) return new Response("Please sign in.", { status: 401 });
 
   let rows: (string | number)[][];
   try {

@@ -4,10 +4,12 @@ import { listHolidays } from "@/lib/store-holidays";
 import type { Holiday } from "@/lib/store-holidays";
 import { HolidaysScreen } from "@/components/holidays-screen";
 import { Notice } from "@/components/ui";
+import { requireArea } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export default async function Page() {
+  await requireArea("hr");
   let holidays: Holiday[] = [];
   let problem: string | null = null;
   try {
