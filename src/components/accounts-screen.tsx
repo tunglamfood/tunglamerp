@@ -8,7 +8,8 @@ import { Btn, Card, Drawer, Notice, PageHeader, Stat } from "@/components/ui";
 import type { AgingRow } from "@/lib/ar-import";
 import type { ImportInfo, Invoice } from "@/lib/store-ar";
 
-const rm = (n: number) => (n ? n.toLocaleString("en-MY", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "—");
+const money = (n: number) => n.toLocaleString("en-MY", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const rm = (n: number) => (n ? money(n) : "—");
 const day = (iso: string) => new Date(`${iso}T00:00:00+08:00`).toLocaleDateString("en-MY", { day: "numeric", month: "short", year: "numeric" });
 
 type Result = { imported: number; skipped: { line: number; reason: string }[]; unknown: string[] };
@@ -102,9 +103,9 @@ export function AccountsScreen({
       </div>
 
       <div className="mb-5 grid gap-3 sm:grid-cols-4">
-        <Stat label="Owed to us" value={`RM ${rm(total)}`} sub={`${rows.length} dealers`} />
-        <Stat label="Overdue" value={`RM ${rm(overdue)}`} tone={overdue ? "text-warn" : ""} />
-        <Stat label="Over 90 days" value={`RM ${rm(over90)}`} tone={over90 ? "text-bad" : ""} />
+        <Stat label="Owed to us" value={`RM ${money(total)}`} sub={`${rows.length} dealers`} />
+        <Stat label="Overdue" value={`RM ${money(overdue)}`} tone={overdue ? "text-warn" : ""} />
+        <Stat label="Over 90 days" value={`RM ${money(over90)}`} tone={over90 ? "text-bad" : ""} />
         <Stat label="Out of stock" value={String(stock.out)} sub={`of ${stock.items} items imported`} />
       </div>
 
